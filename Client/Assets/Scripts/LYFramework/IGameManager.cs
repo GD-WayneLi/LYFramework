@@ -2,9 +2,9 @@
 {
     public interface IGameManager
     {
-        void RegisterModel<T>() where T : IModel, new();
-        void RegisterUtility<T>() where T : IUtility, new();
-        void RegisterSystem<T>() where T : ISystem, new();
+        void RegisterModel<T>(T instance = default) where T : IModel;
+        void RegisterUtility<T>(T instance = default) where T : IUtility;
+        void RegisterSystem<T>(T instance = default) where T : ISystem;
         
         T GetModel<T>() where T : class, IModel;
         T GetUtility<T>() where T : class, IUtility;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace LYFramework
 {
@@ -39,26 +40,70 @@ namespace LYFramework
             
             _gameManager = null;
         }
-        
-        public void RegisterModel<TModel>() where TModel : IModel, new()
+
+        public void RegisterModel<TModel>(TModel instance = default) where TModel : IModel
         {
-            var model = new TModel();
-            m_Models.Add(typeof(TModel), model);
-            
-            model.Init(this);
+            var type = typeof(TModel);
+            if (instance == null)
+            {
+                if (!type.IsClass)
+                {
+                    Debug.LogError($"this type not class: {type.Name}");
+                    return;
+                }
+
+                instance = Activator.CreateInstance<TModel>();
+            }
+
+            if (!m_Models.TryAdd(type, instance))
+            {
+                Debug.LogError($"this type is already add: {type.Name}");
+                return;
+            }
+
+            instance.Init(this);
         }
 
-        public void RegisterUtility<TUtility>() where TUtility : IUtility, new()
+        public void RegisterUtility<TUtility>(TUtility instance = default) where TUtility : IUtility
         {
-            m_Utilities.Add(typeof(TUtility), new TUtility());
+            var type = typeof(TUtility);
+            if (instance == null)
+            {
+                if (!type.IsClass)
+                {
+                    Debug.LogError($"this type not class: {type.Name}");
+                    return;
+                }
+
+                instance = Activator.CreateInstance<TUtility>();
+            }
+            
+            if (!m_Utilities.TryAdd(type, instance))
+            {
+                Debug.LogError($"this type is already add: {type.Name}");
+            }
         }
 
-        public void RegisterSystem<TSystem>() where TSystem : ISystem, new()
+        public void RegisterSystem<TSystem>(TSystem instance = default) where TSystem : ISystem
         {
-            var system = new TSystem();
-            m_Systems.Add(typeof(TSystem), system);
+            var type = typeof(TSystem);
+            if (instance == null)
+            {
+                if (!type.IsClass)
+                {
+                    Debug.LogError($"this type not class: {type.Name}");
+                    return;
+                }
+
+                instance = Activator.CreateInstance<TSystem>();
+            }
+
+            if (!m_Systems.TryAdd(type, instance))
+            {
+                Debug.LogError($"this type is already add: {type.Name}");
+            }
             
-            system.Init(this);
+            instance.Init(this);
         }
 
         public TModel GetModel<TModel>() where TModel : class, IModel
