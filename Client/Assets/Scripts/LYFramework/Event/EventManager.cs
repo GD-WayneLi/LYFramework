@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LYFramework.Log;
 
 namespace LYFramework.Event
 {
@@ -12,7 +13,7 @@ namespace LYFramework.Event
         {
             if (listener == null)
             {
-                // todo:添加报错
+                LYLogger.Error("need to add listener, but listener is null");
                 return;
             }
             var type = typeof(T);
@@ -29,7 +30,7 @@ namespace LYFramework.Event
         {
             if (listener == null)
             {
-                // todo:添加报错
+                LYLogger.Error("need to add listener, but listener is null");
                 return;
             }
             var type = typeof(T);
