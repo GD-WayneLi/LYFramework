@@ -7,7 +7,7 @@ namespace LYFramework.Event
     public class EventManager : IEventManager
     {
         private Dictionary<Type, IEventWrapper> m_EventDic = new();
-        private List<PostEventWrapper> m_EventList = new();
+        private Queue<PostEventWrapper> m_EventList = new();
         
         public void AddListener<T>(EventHandler<T> listener) where T : IEvent
         {
@@ -53,7 +53,7 @@ namespace LYFramework.Event
 
         public void Post<T>(object sender, T e) where T : IEvent
         {
-            m_EventList.Add(new PostEventWrapper(sender, e));
+            m_EventList.Enqueue(new PostEventWrapper(sender, e));
         }
 
         public void Dispose()
@@ -63,13 +63,13 @@ namespace LYFramework.Event
 
         void IEventManager.Update()
         {
-            if (m_EventList.Count > 0)
+            var count = m_EventList.Count;
+            if (count > 0)
             {
-                for (int i = m_EventList.Count; i >= 0; i--)
+                for (int i = 0; i < count; i++)
                 {
-                    var e = m_EventList[i];
+                    var e = m_EventList.Dequeue();
                     Send(e.Sender, e.Event);
-                    m_EventList.RemoveAt(i);
                 }
             }
         }
