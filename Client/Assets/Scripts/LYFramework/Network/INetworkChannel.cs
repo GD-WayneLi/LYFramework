@@ -10,7 +10,5 @@ namespace LYFramework.Network
         void Send<T>(T packet) where T : IPacket;
         void Close();
         void Update();
-        void ProcessSend();
-        void ProcessReceive();
     }
 }
