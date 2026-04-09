@@ -5,7 +5,7 @@ namespace LYFramework.Network
 {
     public class NetworkUtility : INetworkUtility
     {
-        Dictionary<NetworkChannelType, INetworkChannel> m_NetworkChannels = new();
+        readonly Dictionary<NetworkChannelType, INetworkChannel> m_NetworkChannels = new();
 
         public INetworkChannel CreateNetworkChannel<T>(NetworkChannelType channelType, IPacketHelper packetHelper) where T : INetworkChannel, new()
         {

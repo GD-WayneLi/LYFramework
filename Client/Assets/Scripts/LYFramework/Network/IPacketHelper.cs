@@ -8,9 +8,9 @@ namespace LYFramework.Network
         /// 消息头长度
         /// </summary>
         int HeaderLength { get; }
-        int DeserializeHeader(byte[] data);
+        IPacketHeader DeserializeHeader(MemoryStream stream);
         
         bool Serialize<T>(T packet, MemoryStream stream) where T : IPacket;
-        IPacket Deserialize(byte[] data); 
+        IPacket Deserialize(MemoryStream stream, IPacketHeader packetHeader); 
     }
 }

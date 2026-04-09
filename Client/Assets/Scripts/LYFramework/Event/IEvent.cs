@@ -1,5 +1,3 @@
-using System;
-
 namespace LYFramework.Event
 {
     /// <summary>

@@ -15,6 +15,11 @@ namespace LYFramework.Network
         /// <summary>
         /// 发送失败
         /// </summary>
-        SendError
+        SendError,
+        
+        /// <summary>
+        /// 接收失败
+        /// </summary>
+        ReceiveError
     }
 }

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace LYFramework.Event
+﻿namespace LYFramework.Event
 {
     public interface IEventWrapper
     {
