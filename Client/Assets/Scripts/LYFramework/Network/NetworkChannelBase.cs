@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -43,7 +43,7 @@ namespace LYFramework.Network
         public bool Init(IPacketHelper packetHelper)
         {
             m_PacketHelper = packetHelper;
-            
+
             m_ReceiveStream = new MemoryStream(DefaultBufferSize);
             m_SendStream = new MemoryStream(DefaultBufferSize);
 
@@ -125,7 +125,21 @@ namespace LYFramework.Network
 
             ProcessSend();
             ProcessReceive();
-            ProcessReceivePacket();
+        }
+
+        public bool TryDequeuePacket(out IPacket packet)
+        {
+            lock (m_ReceivePacketQueue)
+            {
+                if (m_ReceivePacketQueue.Count <= 0)
+                {
+                    packet = null;
+                    return false;
+                }
+
+                packet = m_ReceivePacketQueue.Dequeue();
+                return true;
+            }
         }
 
         protected virtual bool ProcessSend()
@@ -192,10 +206,9 @@ namespace LYFramework.Network
                 return;
             }
 
-            ResetReadStream();
-
             if (e.SocketError != SocketError.Success)
             {
+                ResetReadStream();
                 if (NetworkChannelError != null)
                 {
                     NetworkChannelError(this, NetworkErrorCode.SendError, e.SocketError.ToString());
@@ -203,6 +216,21 @@ namespace LYFramework.Network
                 }
 
                 throw new Exception(e.SocketError.ToString());
+            }
+
+            m_SendStream.Position += e.BytesTransferred;
+            if (m_SendStream.Position < m_SendStream.Length)
+            {
+                m_SendEventArgs.SetBuffer(m_SendStream.GetBuffer(), (int)m_SendStream.Position,
+                    (int)(m_SendStream.Length - m_SendStream.Position));
+                if (!Socket.SendAsync(m_SendEventArgs))
+                {
+                    OnSendCompleted(this, m_SendEventArgs);
+                }
+            }
+            else
+            {
+                ResetReadStream();
             }
         }
 
@@ -238,10 +266,10 @@ namespace LYFramework.Network
 
                 if (m_PacketHeader == null || m_PacketHeader.PacketLength < 0)
                     throw new Exception("DeserializeHeader failure.");
-                
+
                 m_ReceiveStream.Position = 0;
                 m_ReceiveStream.SetLength(m_PacketHeader.PacketLength);
-                
+
                 if (m_PacketHeader.PacketLength <= 0)
                 {
                     DeserializePacket();
@@ -263,22 +291,12 @@ namespace LYFramework.Network
                     m_ReceivePacketQueue.Enqueue(packet);
                 }
             }
+
             ResetReceiveState();
 
             return true;
         }
 
-        void ProcessReceivePacket()
-        {
-            lock (m_ReceivePacketQueue)
-            {
-                while (m_ReceivePacketQueue.Count > 0)
-                {
-                    var packet = m_ReceivePacketQueue.Dequeue();
-                }
-            }
-        }
-        
         void ResetReadStream()
         {
             m_SendStream.Position = 0;

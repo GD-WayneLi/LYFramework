@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace LYFramework.Network
 {
-    public class NetworkUtility : INetworkUtility
+    public class NetworkManager
     {
         readonly Dictionary<NetworkChannelType, INetworkChannel> m_NetworkChannels = new();
 

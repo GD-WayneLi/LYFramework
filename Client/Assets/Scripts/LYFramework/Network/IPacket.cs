@@ -2,6 +2,6 @@
 {
     public interface IPacket
     {
-        
+        int Id { get; }
     }
 }
