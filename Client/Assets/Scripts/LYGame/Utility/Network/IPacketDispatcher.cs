@@ -1,7 +1,7 @@
 using System;
 using LYFramework.Network;
 
-namespace LYGame.Network
+namespace LYGame.Utility.Network
 {
     public interface IPacketDispatcher
     {

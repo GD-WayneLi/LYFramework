@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using LYFramework.Network;
 
-namespace LYGame.Network
+namespace LYGame.Utility.Network
 {
     public class PacketDispatcher : IPacketDispatcher
     {
