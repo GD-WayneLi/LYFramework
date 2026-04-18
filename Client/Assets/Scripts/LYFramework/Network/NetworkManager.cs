@@ -5,9 +5,9 @@ namespace LYFramework.Network
 {
     public class NetworkManager
     {
-        readonly Dictionary<NetworkChannelType, INetworkChannel> m_NetworkChannels = new();
+        readonly Dictionary<string, INetworkChannel> m_NetworkChannels = new();
 
-        public INetworkChannel CreateNetworkChannel<T>(NetworkChannelType channelType, IPacketHelper packetHelper) where T : INetworkChannel, new()
+        public INetworkChannel CreateNetworkChannel<T>(string channelName, IPacketHelper packetHelper, IPacketDispatcher dispatcher) where T : INetworkChannel, new()
         {
             if (packetHelper == null)
             {
@@ -18,38 +18,43 @@ namespace LYFramework.Network
             {
                 throw new Exception("packetHelper.HeaderLength need > 0");
             }
-            
-            if (HasNetworkChannel(channelType))
+
+            if (dispatcher == null)
             {
-                throw new Exception($"Network channel {channelType} already exists");
+                throw new Exception($"dispatcher is null");
+            }
+            
+            if (HasNetworkChannel(channelName))
+            {
+                throw new Exception($"Network channel {channelName} already exists");
             }
 
             var channel = new T();
-            if (!channel.Init(packetHelper))
+            if (!channel.Init(channelName, packetHelper, dispatcher))
             {
-                throw new Exception($"Failed to initialize network channel {channelType}");
+                throw new Exception($"Failed to initialize network channel {channelName}");
             }
-            m_NetworkChannels.Add(channelType, channel);
+            m_NetworkChannels.Add(channelName, channel);
             return channel;
         }
 
-        public void DestroyNetworkChannel(NetworkChannelType channelType)
+        public void DestroyNetworkChannel(string channelName)
         {
-            if (m_NetworkChannels.TryGetValue(channelType, out var channel))
+            if (m_NetworkChannels.TryGetValue(channelName, out var channel))
             {
                 channel.Dispose();
-                m_NetworkChannels.Remove(channelType);
+                m_NetworkChannels.Remove(channelName);
             }
         }
 
-        public bool HasNetworkChannel(NetworkChannelType channelType)
+        public bool HasNetworkChannel(string channelName)
         {
-            return m_NetworkChannels.ContainsKey(channelType);
+            return m_NetworkChannels.ContainsKey(channelName);
         }
 
-        public INetworkChannel GetNetworkChannel(NetworkChannelType channelType)
+        public INetworkChannel GetNetworkChannel(string channelName)
         {
-            m_NetworkChannels.TryGetValue(channelType, out var channel);
+            m_NetworkChannels.TryGetValue(channelName, out var channel);
             return channel;
         }
 

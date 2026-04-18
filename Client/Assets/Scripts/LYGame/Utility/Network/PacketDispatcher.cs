@@ -1,65 +1,93 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using LYFramework.Log;
 using LYFramework.Network;
+using LYFramework.ReferencePool;
 
 namespace LYGame.Utility.Network
 {
     public class PacketDispatcher : IPacketDispatcher
     {
         readonly Dictionary<int, Action<IPacket>> m_PacketHandlers = new();
-
-        public void AddHandler(int packetId, Action<IPacket> handler)
+        readonly ConcurrentQueue<IPacket> m_PacketQueue = new();
+        
+        public void AddHandler(IPacketHandler handler)
         {
             if (handler == null)
             {
                 throw new ArgumentNullException(nameof(handler));
             }
 
-            if (m_PacketHandlers.TryGetValue(packetId, out var existingHandler))
+            if (m_PacketHandlers.ContainsKey(handler.Id))
             {
-                m_PacketHandlers[packetId] = existingHandler + handler;
+                m_PacketHandlers[handler.Id] += handler.HandlePacket;
                 return;
             }
 
-            m_PacketHandlers.Add(packetId, handler);
+            m_PacketHandlers.Add(handler.Id, handler.HandlePacket);
         }
 
-        public void RemoveHandler(int packetId, Action<IPacket> handler)
+        public void RemoveHandler(IPacketHandler handler)
         {
             if (handler == null)
             {
                 throw new ArgumentNullException(nameof(handler));
             }
 
-            if (!m_PacketHandlers.TryGetValue(packetId, out var existingHandler))
+            if (!m_PacketHandlers.ContainsKey(handler.Id))
             {
                 return;
             }
 
-            existingHandler -= handler;
-            if (existingHandler == null)
+            m_PacketHandlers[handler.Id] -= handler.HandlePacket;
+            if (m_PacketHandlers[handler.Id] == null)
             {
-                m_PacketHandlers.Remove(packetId);
-                return;
+                m_PacketHandlers.Remove(handler.Id);
             }
-
-            m_PacketHandlers[packetId] = existingHandler;
         }
 
-        public void Dispatch(INetworkChannel channel)
+        public void Dispatch(IPacket packet)
         {
-            if (channel == null)
+            if (packet == null)
             {
-                throw new ArgumentNullException(nameof(channel));
+                throw new ArgumentNullException(nameof(packet));
             }
 
-            while (channel.TryDequeuePacket(out var packet))
+            m_PacketQueue.Enqueue(packet);
+        }
+
+        public void Update()
+        {
+            while (m_PacketQueue.TryDequeue(out var packet))
             {
-                if (m_PacketHandlers.TryGetValue(packet.Id, out var handler))
+                if (!m_PacketHandlers.TryGetValue(packet.Id, out var handler))
                 {
-                    handler(packet);
+                    ReferencePool.Release(packet);
+                    continue;
                 }
+                try
+                {
+                    handler?.Invoke(packet);
+                }
+                catch (Exception e)
+                {
+                    LYLogger.Error($"消息处理异常, packetId = {packet.Id}, {e}");
+                }
+                
+                ReferencePool.Release(packet);
             }
+        }
+
+        public void Dispose()
+        {
+            foreach (var packet in m_PacketQueue)
+            {
+                ReferencePool.Release(packet);
+            }
+            
+            m_PacketQueue.Clear();
+            m_PacketHandlers.Clear();
         }
     }
 }

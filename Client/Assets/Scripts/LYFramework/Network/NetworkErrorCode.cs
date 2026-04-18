@@ -13,6 +13,11 @@ namespace LYFramework.Network
         SerializeError,
         
         /// <summary>
+        /// 反序列化错误
+        /// </summary>
+        DeserializeError,
+        
+        /// <summary>
         /// 发送失败
         /// </summary>
         SendError,

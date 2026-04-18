@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -8,16 +8,18 @@ namespace LYFramework.Network
 {
     public abstract class NetworkChannelBase : INetworkChannel
     {
+        public Action<NetworkChannelBase, object> NetworkChannelConnected;
+        public Action<NetworkChannelBase> NetworkChannelClosed;
         public Action<NetworkChannelBase, NetworkErrorCode, string> NetworkChannelError;
 
         private const int DefaultBufferSize = 1024 * 4;
 
         private IPacketHelper m_PacketHelper;
         private IPacketHeader m_PacketHeader;
+        private IPacketDispatcher m_PacketDispatcher;
 
         private Socket m_Socket;
-        private readonly Queue<IPacket> m_SendPacketQueue = new();
-        private readonly Queue<IPacket> m_ReceivePacketQueue = new();
+        private readonly ConcurrentQueue<IPacket> m_SendPacketQueue = new();
 
         private MemoryStream m_ReceiveStream;
         private MemoryStream m_SendStream;
@@ -29,6 +31,7 @@ namespace LYFramework.Network
 
         public Socket Socket => m_Socket;
 
+        public string Name { get; private set; }
         public bool IsConnected
         {
             get
@@ -40,10 +43,12 @@ namespace LYFramework.Network
             }
         }
 
-        public bool Init(IPacketHelper packetHelper)
+        public bool Init(string name, IPacketHelper packetHelper, IPacketDispatcher dispatcher)
         {
+            Name = name;
             m_PacketHelper = packetHelper;
-
+            m_PacketDispatcher = dispatcher;
+            
             m_ReceiveStream = new MemoryStream(DefaultBufferSize);
             m_SendStream = new MemoryStream(DefaultBufferSize);
 
@@ -54,6 +59,16 @@ namespace LYFramework.Network
             m_SendEventArgs.Completed += OnSendCompleted;
 
             return true;
+        }
+
+        public void AddHandler(IPacketHandler handler)
+        {
+            m_PacketDispatcher.AddHandler(handler);
+        }
+
+        public void RemoveHandler(IPacketHandler handler)
+        {
+            m_PacketDispatcher.RemoveHandler(handler);
         }
 
         public virtual void Connect(IPAddress ipAddress, int port)
@@ -77,10 +92,7 @@ namespace LYFramework.Network
                 return;
             }
 
-            lock (m_SendPacketQueue)
-            {
-                m_SendPacketQueue.Enqueue(packet);
-            }
+            m_SendPacketQueue.Enqueue(packet);
         }
 
         public void Close()
@@ -102,17 +114,11 @@ namespace LYFramework.Network
                 finally
                 {
                     socket.Close();
+                    
+                    NetworkChannelClosed?.Invoke(this);
                 }
 
-                lock (m_SendPacketQueue)
-                {
-                    m_SendPacketQueue.Clear();
-                }
-
-                lock (m_ReceivePacketQueue)
-                {
-                    m_ReceivePacketQueue.Clear();
-                }
+                m_SendPacketQueue.Clear();
             }
         }
 
@@ -124,46 +130,50 @@ namespace LYFramework.Network
             }
 
             ProcessSend();
-            ProcessReceive();
-        }
-
-        public bool TryDequeuePacket(out IPacket packet)
-        {
-            lock (m_ReceivePacketQueue)
+            
+            if (!IsConnected)
             {
-                if (m_ReceivePacketQueue.Count <= 0)
-                {
-                    packet = null;
-                    return false;
-                }
-
-                packet = m_ReceivePacketQueue.Dequeue();
-                return true;
+                return;
             }
-        }
 
+            m_PacketDispatcher.Update();
+        }
+        
         protected virtual bool ProcessSend()
         {
             if (m_SendStream.Length > 0 || m_SendPacketQueue.Count <= 0)
                 return false;
 
-            lock (m_SendPacketQueue)
+            while (m_SendPacketQueue.Count > 0)
             {
-                while (m_SendPacketQueue.Count > 0)
-                {
-                    var packet = m_SendPacketQueue.Dequeue();
-                    var result = m_PacketHelper.Serialize(packet, m_SendStream);
-                    if (!result)
-                    {
-                        var errorStr = "Serialized packet failure.";
-                        if (NetworkChannelError != null)
-                        {
-                            NetworkChannelError(this, NetworkErrorCode.SerializeError, errorStr);
-                            return false;
-                        }
+                if (!m_SendPacketQueue.TryDequeue(out var packet))
+                    continue;
 
-                        throw new Exception(errorStr);
+                var result = false;
+                try
+                {
+                    result = m_PacketHelper.Serialize(packet, m_SendStream);
+                }
+                catch (Exception e)
+                {
+                    if (NetworkChannelError != null)
+                    {
+                        NetworkChannelError(this, NetworkErrorCode.SerializeError, e.Message);
+                        return false;
                     }
+                    throw;
+                }
+                
+                if (!result)
+                {
+                    var errorStr = "Serialized packet failure.";
+                    if (NetworkChannelError != null)
+                    {
+                        NetworkChannelError(this, NetworkErrorCode.SerializeError, errorStr);
+                        return false;
+                    }
+
+                    throw new Exception(errorStr);
                 }
             }
 
@@ -181,7 +191,9 @@ namespace LYFramework.Network
         protected virtual void ProcessReceive()
         {
             if (m_IsReceiving)
+            {
                 return;
+            }
 
             m_IsReceiving = true;
             m_ReceiveEventArgs.SetBuffer(m_ReceiveStream.GetBuffer(), (int)m_ReceiveStream.Position,
@@ -197,6 +209,9 @@ namespace LYFramework.Network
         public void Dispose()
         {
             Close();
+            m_PacketDispatcher.Dispose();
+            m_PacketHelper = null;
+            m_PacketDispatcher = null;
         }
 
         void OnSendCompleted(object sender, SocketAsyncEventArgs e)
@@ -256,6 +271,7 @@ namespace LYFramework.Network
             m_ReceiveStream.Position += e.BytesTransferred;
             if (m_ReceiveStream.Position < m_ReceiveStream.Length)
             {
+                ProcessReceive();
                 return;
             }
 
@@ -279,17 +295,28 @@ namespace LYFramework.Network
             {
                 DeserializePacket();
             }
+            
+            ProcessReceive();
         }
 
         bool DeserializePacket()
         {
-            var packet = m_PacketHelper.Deserialize(m_ReceiveStream, m_PacketHeader);
-            if (packet != null)
+            try
             {
-                lock (m_ReceivePacketQueue)
+                var packet = m_PacketHelper.Deserialize(m_ReceiveStream, m_PacketHeader);
+                if (packet != null)
                 {
-                    m_ReceivePacketQueue.Enqueue(packet);
+                    m_PacketDispatcher.Dispatch(packet);
                 }
+            }
+            catch (Exception e)
+            {
+                if (NetworkChannelError != null)
+                {
+                    NetworkChannelError(this, NetworkErrorCode.DeserializeError, e.Message);
+                    return false;
+                }
+                throw;
             }
 
             ResetReceiveState();

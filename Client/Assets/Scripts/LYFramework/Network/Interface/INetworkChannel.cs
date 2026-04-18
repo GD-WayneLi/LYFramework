@@ -6,6 +6,11 @@ namespace LYFramework.Network
     public interface INetworkChannel : IDisposable
     {
         /// <summary>
+        /// 频道名
+        /// </summary>
+        string Name { get; }
+        
+        /// <summary>
         /// 获取是否已连接。
         /// </summary>
         bool IsConnected
@@ -13,10 +18,14 @@ namespace LYFramework.Network
             get;
         }
 
-        bool Init(IPacketHelper packetHelper);
+        bool Init(string name, IPacketHelper packetHelper, IPacketDispatcher dispatcher);
+        
+        void AddHandler(IPacketHandler handler);
+        void RemoveHandler(IPacketHandler handler);
+        
         void Connect(IPAddress ipAddress, int port);
         void Send<T>(T packet) where T : IPacket;
-        bool TryDequeuePacket(out IPacket packet);
+        
         void Close();
         void Update();
     }

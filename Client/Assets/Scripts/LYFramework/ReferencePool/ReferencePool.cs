@@ -41,16 +41,15 @@ namespace LYFramework.ReferencePool
         /// <summary>
         /// 释放指定对象的资源
         /// </summary>
-        /// <typeparam name="T">泛型类型，表示要释放的对象类型</typeparam>
         /// <param name="obj">需要释放资源的对象</param>
-        public static void Release<T>(T obj) where T : class, IReference, new()
+        public static void Release(IReference obj)
         {
-            var type = typeof(T);
+            var type = obj.GetType();
             if (!m_Pool.TryGetValue(type, out var collector))
             {
                 throw new Exception($"this type not Acquire:{type}");
             }
-
+            
             collector.Release(obj);
         }
         
