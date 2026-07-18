@@ -11,14 +11,14 @@ namespace LYFramework
             return m_GameManager;
         }
 
-        void IDisposable.Dispose()
+        void INeedInit.Dispose()
         {
             OnDispose();
             
             m_GameManager = null;
         }
 
-        void ICanInit.Init(IGameManager gameManager)
+        void INeedInit.Init(IGameManager gameManager)
         {
             m_GameManager = gameManager;
             
