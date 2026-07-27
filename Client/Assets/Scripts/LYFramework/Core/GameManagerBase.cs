@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using LYFramework.Log;
 using UnityEngine;
 
 namespace LYFramework
 {
-    public abstract class GameManagerBase<T> : IGameManager where T : GameManagerBase<T>, new()
+    /// <summary>
+    /// 游戏的全局管理器，同时也是 Entity World 的根 Scene。
+    /// </summary>
+    public abstract class GameManagerBase<T> : Entity, IGameManager where T : GameManagerBase<T>, new()
     {
         private static T _gameManager;
 
@@ -20,48 +24,36 @@ namespace LYFramework
             }
         }
 
-        private Dictionary<Type, IModel> m_Models = new Dictionary<Type, IModel>();
-        private Dictionary<Type, IUtility> m_Utilities = new Dictionary<Type, IUtility>();
-        private Dictionary<Type, ISystem> m_Systems = new Dictionary<Type, ISystem>();
+        private readonly Dictionary<Type, IUtility> m_Utilities = new();
+        private readonly Dictionary<Type, ISystem> m_Systems = new();
+
+        /// <summary>
+        /// GameManager 本身就是 World 根节点。通过接口访问时无需了解具体的 GameManager 类型。
+        /// </summary>
+        public Entity World => this;
 
         public abstract void Init();
 
-        public virtual void Dispose()
+        public override void Dispose()
         {
+            if (IsDisposed)
+            {
+                return;
+            }
+
             foreach (var system in m_Systems)
             {
                 system.Value.Dispose();
             }
 
-            foreach (var model in m_Models)
-            {
-                model.Value.Dispose();
-            }
-            
+            m_Systems.Clear();
+            m_Utilities.Clear();
+
+            // 递归销毁挂载在 World 下的全部 Component 和 Child Entity，
+            // 并清理 Scene 的 Entity 索引。
+            base.Dispose();
+
             _gameManager = null;
-        }
-
-        public void RegisterModel<TModel>(TModel instance = default) where TModel : IModel
-        {
-            var type = typeof(TModel);
-            if (instance == null)
-            {
-                if (!type.IsClass)
-                {
-                    Debug.LogError($"this type not class: {type.Name}");
-                    return;
-                }
-
-                instance = Activator.CreateInstance<TModel>();
-            }
-
-            if (!m_Models.TryAdd(type, instance))
-            {
-                Debug.LogError($"this type is already add: {type.Name}");
-                return;
-            }
-
-            instance.Init(this);
         }
 
         public void RegisterUtility<TUtility>(TUtility instance = default) where TUtility : IUtility
@@ -71,7 +63,7 @@ namespace LYFramework
             {
                 if (!type.IsClass)
                 {
-                    Debug.LogError($"this type not class: {type.Name}");
+                    LYLogger.Error($"this type not class: {type.Name}");
                     return;
                 }
 
@@ -80,7 +72,7 @@ namespace LYFramework
             
             if (!m_Utilities.TryAdd(type, instance))
             {
-                Debug.LogError($"this type is already add: {type.Name}");
+                LYLogger.Error($"this type is already add: {type.Name}");
             }
         }
 
@@ -91,7 +83,7 @@ namespace LYFramework
             {
                 if (!type.IsClass)
                 {
-                    Debug.LogError($"this type not class: {type.Name}");
+                    LYLogger.Error($"this type not class: {type.Name}");
                     return;
                 }
 
@@ -100,15 +92,11 @@ namespace LYFramework
 
             if (!m_Systems.TryAdd(type, instance))
             {
-                Debug.LogError($"this type is already add: {type.Name}");
+                LYLogger.Error($"this type is already add: {type.Name}");
+                return;
             }
-            
-            instance.Init(this);
-        }
 
-        public TModel GetModel<TModel>() where TModel : class, IModel
-        {
-            return m_Models.GetValueOrDefault(typeof(TModel)) as TModel;
+            instance.Init(this);
         }
 
         public TUtility GetUtility<TUtility>() where TUtility : class, IUtility
