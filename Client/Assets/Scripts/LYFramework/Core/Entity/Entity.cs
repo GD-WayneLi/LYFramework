@@ -39,7 +39,7 @@ namespace LYFramework
         /// <summary>
         /// Entity 当前所属的顶层 Scene。游离 Entity 的 Scene 为 null。
         /// </summary>
-        public Scene Scene { get; private set; }
+        public Scene Scene { get; protected set; }
 
         public bool IsDisposed => m_IsDisposed;
         public bool IsComponent => m_IsComponent;
@@ -176,7 +176,7 @@ namespace LYFramework
         /// <summary>
         /// 从当前父节点移除。dispose 为 false 时，Entity 会成为未归属 Scene 的游离对象。
         /// </summary>
-        public bool RemoveChild(Entity child, bool dispose = true)
+        public bool RemoveChild(Entity child)
         {
             ThrowIfDisposed();
 
@@ -185,16 +185,7 @@ namespace LYFramework
                 return false;
             }
 
-            if (dispose)
-            {
-                child.Dispose();
-            }
-            else
-            {
-                child.DetachFromParent();
-                child.ChangeScene(null);
-            }
-
+            child.Dispose();
             return true;
         }
 

@@ -58,7 +58,7 @@ Demo / LYGame  ──────>  LYFramework
 - Parent 拥有 Child 和 Component；默认移除会连带 `Dispose()`，`dispose: false` 才会产生游离对象。
 - Component 只能挂在一个 Parent 下，且同一 Parent 当前只允许一个相同运行时类型的 Component。
 - 改动 Entity 树时必须维护：无环、单一父节点、Scene 索引一致、重复销毁安全、遍历期间修改安全。
-- 当前 `GameManagerBase<T>` 继承的是 `Entity`，但注释和 `World` API 把它描述为根 Scene；同时 `Scene` 自身没有把根节点接入自己的索引。因此当前 World/Scene 索引语义尚未闭环。修复前不要依赖 `World` 能按 Id 查询整棵树，也不要继续扩散“GameManager 已经是 Scene”的假设。
+- `GameManagerBase<T>` 独占一个 `World`，但自身不是 `Entity` 或 `Scene`。`World` 只管理 Scene 的所有权、生命周期和查询；`Scene` 是各自 Entity 树的根节点，并将自身及整棵树纳入 Id 索引。
 - `LYFramework.Scene` 容易与 Unity Scene 类型混淆；引用两者的文件使用别名或完整限定名。
 
 ### Event

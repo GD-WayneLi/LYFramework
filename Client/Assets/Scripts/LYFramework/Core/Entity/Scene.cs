@@ -10,6 +10,16 @@ namespace LYFramework
     {
         private readonly Dictionary<long, Entity> m_Entities = new();
 
+        public Scene()
+        {
+            Scene = this;
+        }
+
+        /// <summary>
+        /// 获取当前 Scene 所属的 World。未加入 World 时为 null。
+        /// </summary>
+        public World World { get; private set; }
+
         public int EntityCount => m_Entities.Count;
 
         public Entity GetEntity(long id)
@@ -26,6 +36,29 @@ namespace LYFramework
         public bool TryGetEntity(long id, out Entity entity)
         {
             return m_Entities.TryGetValue(id, out entity);
+        }
+
+        internal void AttachWorld(World world)
+        {
+            if (world == null)
+            {
+                throw new ArgumentNullException(nameof(world));
+            }
+
+            if (World != null)
+            {
+                throw new InvalidOperationException("The Scene already belongs to a World.");
+            }
+
+            World = world;
+        }
+
+        internal void DetachWorld(World world)
+        {
+            if (ReferenceEquals(World, world))
+            {
+                World = null;
+            }
         }
 
         internal void RegisterTree(Entity root)

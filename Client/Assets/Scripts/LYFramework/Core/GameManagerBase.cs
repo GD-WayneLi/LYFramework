@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using LYFramework.Log;
-using UnityEngine;
 
 namespace LYFramework
 {
     /// <summary>
-    /// 游戏的全局管理器，同时也是 Entity World 的根 Scene。
+    /// 游戏的全局管理器，负责服务注册并持有管理 Scene 的 World。
     /// </summary>
-    public abstract class GameManagerBase<T> : Entity, IGameManager where T : GameManagerBase<T>, new()
+    public abstract class GameManagerBase<T> : IGameManager, IDisposable where T : GameManagerBase<T>, new()
     {
         private static T _gameManager;
+        private bool m_IsDisposed;
 
         public static T Instance
         {
@@ -28,18 +28,22 @@ namespace LYFramework
         private readonly Dictionary<Type, ISystem> m_Systems = new();
 
         /// <summary>
-        /// GameManager 本身就是 World 根节点。通过接口访问时无需了解具体的 GameManager 类型。
+        /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁其中的全部 Scene。
         /// </summary>
-        public Entity World => this;
+        public World World { get; } = new();
+
+        public bool IsDisposed => m_IsDisposed;
 
         public abstract void Init();
 
-        public override void Dispose()
+        public virtual void Dispose()
         {
-            if (IsDisposed)
+            if (m_IsDisposed)
             {
                 return;
             }
+
+            m_IsDisposed = true;
 
             foreach (var system in m_Systems)
             {
@@ -49,9 +53,7 @@ namespace LYFramework
             m_Systems.Clear();
             m_Utilities.Clear();
 
-            // 递归销毁挂载在 World 下的全部 Component 和 Child Entity，
-            // 并清理 Scene 的 Entity 索引。
-            base.Dispose();
+            World.Dispose();
 
             _gameManager = null;
         }

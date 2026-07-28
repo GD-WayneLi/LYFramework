@@ -3,9 +3,9 @@
     public interface IGameManager
     {
         /// <summary>
-        /// 当前游戏的 Entity World。GameManager 本身就是这个 World 的根 Scene。
+        /// 获取当前游戏的 World。World 仅负责管理 Scene 的生命周期与查询。
         /// </summary>
-        Entity World { get; }
+        World World { get; }
 
         void RegisterUtility<T>(T instance = default) where T : IUtility;
         void RegisterSystem<T>(T instance = default) where T : ISystem;

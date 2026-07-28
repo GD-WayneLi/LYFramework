@@ -27,7 +27,7 @@
 
 ## 已知状态
 
-- 当前 `GameManagerBase<T>` 继承 `Entity`，但 API 将其描述为根 Scene；根节点的 Scene 归属与 Scene Id 索引尚未闭环。
+- `GameManagerBase<T>` 持有独立的 `World`，自身不参与 Entity 树。`World` 仅管理 Scene，Scene 自身是 Entity 树根节点并维护完整 Id 索引。
 - 当前 Utility 没有统一 Init/Dispose 契约。修复应作为完整生命周期设计处理，不做局部补丁。
 
 ## 最低验证
