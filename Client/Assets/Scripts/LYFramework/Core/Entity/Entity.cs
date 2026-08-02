@@ -1,155 +1,187 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using LYFramework.Log;
 
 namespace LYFramework
 {
+	[Flags]
+	public enum EntityStatus : byte
+	{
+		None = 0,
+		IsComponent = 1,
+		IsDisposed = 1 << 1,
+	}
+
     /// <summary>
     /// ECS 中所有业务对象与组件的基类。
     /// Entity 只能通过父子关系或组件关系挂接到一棵 Entity 树中。
     /// </summary>
     public class Entity : IDisposable
     {
-        private static long s_IdGenerator;
-        private static long s_InstanceIdGenerator;
-
         private Dictionary<long, Entity> m_Children;
-        private Dictionary<Type, Entity> m_Components;
-        private bool m_IsDisposed;
-        private bool m_IsComponent;
+		public Dictionary<long, Entity> Children
+		{
+			get { return m_Children ??= new(); }
+		}
 
-        public Entity()
+        private Dictionary<Type, Entity> m_Components;
+		public Dictionary<Type, Entity> Components
+		{
+			get { return m_Components ??= new(); }
+		}
+
+		private EntityStatus m_Status;
+
+        protected Entity()
         {
-            Id = Interlocked.Increment(ref s_IdGenerator);
-            InstanceId = Interlocked.Increment(ref s_InstanceIdGenerator);
         }
 
         /// <summary>
-        /// Entity 的稳定标识。当前由框架自动生成，后续可由 EntityFactory 扩展业务 Id。
+        /// Entity 的稳定标识。
         /// </summary>
-        public long Id { get; }
+        public long Id { get; private set; }
 
         /// <summary>
         /// 当前对象生命周期标识。销毁后为 0，可用于异步操作的有效性检查。
         /// </summary>
         public long InstanceId { get; private set; }
 
-        public Entity Parent { get; private set; }
+		private Entity m_Parent;
+		public Entity Parent
+		{
+			get => m_Parent;
+			private set
+			{
+				if (value == null)
+				{
+					throw new ArgumentNullException(GetType().Name);
+				}
 
-        /// <summary>
-        /// Entity 当前所属的顶层 Scene。游离 Entity 的 Scene 为 null。
-        /// </summary>
-        public Scene Scene { get; protected set; }
+				if (ReferenceEquals(value, this))
+				{
+					throw new InvalidOperationException("An entity cannot be its own child.");
+				}
 
-        public bool IsDisposed => m_IsDisposed;
-        public bool IsComponent => m_IsComponent;
-        public int ChildCount => m_Children?.Count ?? 0;
+				if (value.Domain == null)
+				{
+                    throw new Exception($"Parent domain is null: {GetType().Name}, {value.GetType().Name}");
+				}
+
+				if (m_Parent != null)
+				{
+					if (m_Parent == value)
+					{
+						LYLogger.Error($"Set parent repeat: {GetType().Name}");
+						return;
+					}
+					m_Parent.OnRemoveChild(this);
+				}
+
+				m_Parent = value;
+				m_Parent.OnAddChild(this);
+				ChangeDomain(m_Parent.Domain);
+			}
+		}
+
+		private Entity ComponentParent
+		{
+			set
+			{
+				if (value == null)
+				{
+					throw new ArgumentNullException(GetType().Name);
+				}
+
+				if (ReferenceEquals(value, this))
+				{
+					throw new InvalidOperationException("An entity cannot be its own child.");
+				}
+
+				if (Domain == null)
+				{
+                    throw new Exception($"Parent domain is null: {GetType().Name}, {value.GetType().Name}");
+				}
+
+				if (m_Parent != null)
+				{
+					if (m_Parent == value)
+					{
+						LYLogger.Error($"Set parent repeat: {GetType().Name}");
+						return;
+					}
+					m_Parent.OnRemoveComponent(this);
+				}
+
+				m_Parent = value;
+				m_Parent.OnAddComponent(this);
+				ChangeDomain(m_Parent.Domain);
+			}
+		}
+
+		/// <summary>
+		/// Entity 当前所属的逻辑域。游离 Entity 的 Domain 为 null。
+		/// </summary>
+		public EntityDomain Domain { get; protected set; }
+
+        public bool IsDisposed
+		{
+			get
+			{
+				return (m_Status & EntityStatus.IsDisposed) > 0;
+			}
+			private set
+			{
+				if (value)
+				{
+					m_Status |= EntityStatus.IsDisposed;
+				}
+				else
+				{
+					m_Status &= ~EntityStatus.IsDisposed;
+				}
+			}
+		}
+
+		public bool IsComponent
+		{
+			get
+			{
+				return (m_Status & EntityStatus.IsComponent) > 0;
+			}
+			private set
+			{
+				if (value)
+				{
+					m_Status |= EntityStatus.IsComponent;
+				}
+				else
+				{
+					m_Status &= ~EntityStatus.IsComponent;
+				}
+			}
+		}
+
+		public int ChildCount => m_Children?.Count ?? 0;
         public int ComponentCount => m_Components?.Count ?? 0;
 
-        public IEnumerable<Entity> Children
-        {
-            get
-            {
-                if (m_Children == null)
-                {
-                    return Array.Empty<Entity>();
-                }
+		static T Create<T>() where T : Entity
+		{
+			var entity = Activator.CreateInstance(typeof(T)) as T;
+            entity.Id = 0;
+			entity.m_Status = EntityStatus.None;
 
-                return m_Children.Values;
-            }
-        }
-
-        public IEnumerable<Entity> Components
-        {
-            get
-            {
-                if (m_Components == null)
-                {
-                    return Array.Empty<Entity>();
-                }
-
-                return m_Components.Values;
-            }
-        }
+            return entity;
+		}
 
         public T AddChild<T>() where T : Entity, new()
         {
-            return AddChild(new T());
-        }
-
-        /// <summary>
-        /// 添加子节点。若 child 已有父节点，会将其迁移到当前节点。
-        /// </summary>
-        public T AddChild<T>(T child) where T : Entity
-        {
             ThrowIfDisposed();
 
-            if (child == null)
-            {
-                throw new ArgumentNullException(nameof(child));
-            }
-
-            child.ThrowIfDisposed();
-
-            if (child is Scene)
-            {
-                throw new InvalidOperationException("Scene cannot be added as a child entity.");
-            }
-
-            if (child.m_IsComponent)
-            {
-                throw new InvalidOperationException($"Component '{child.GetType().Name}' cannot be added as a child entity.");
-            }
-
-            if (ReferenceEquals(child, this))
-            {
-                throw new InvalidOperationException("An entity cannot be its own child.");
-            }
-
-            for (Entity current = this; current != null; current = current.Parent)
-            {
-                if (ReferenceEquals(current, child))
-                {
-                    throw new InvalidOperationException("Adding this child would create a circular entity hierarchy.");
-                }
-            }
-
-            if (ReferenceEquals(child.Parent, this))
-            {
-                return child;
-            }
-
-            var oldScene = child.Scene;
-            child.DetachFromParent();
-
-            m_Children ??= new Dictionary<long, Entity>();
-            if (!m_Children.TryAdd(child.Id, child))
-            {
-                throw new InvalidOperationException($"Child entity id '{child.Id}' already exists on '{GetType().Name}'.");
-            }
-
-            child.Parent = this;
-            if (!ReferenceEquals(oldScene, Scene))
-            {
-                child.ChangeScene(Scene);
-            }
+			var child = Create<T>();
+			child.Parent = this;
 
             return child;
-        }
-
-        public void Reparent(Entity newParent)
-        {
-            if (newParent == null)
-            {
-                throw new ArgumentNullException(nameof(newParent));
-            }
-
-            if (m_IsComponent)
-            {
-                throw new InvalidOperationException("A component cannot be reparented as a child entity.");
-            }
-
-            newParent.AddChild(this);
         }
 
         public Entity GetChild(long id)
@@ -174,13 +206,13 @@ namespace LYFramework
         }
 
         /// <summary>
-        /// 从当前父节点移除。dispose 为 false 时，Entity 会成为未归属 Scene 的游离对象。
+        /// 从当前父节点移除。dispose 为 false 时，Entity 会成为未归属 EntityDomain 的游离对象。
         /// </summary>
         public bool RemoveChild(Entity child)
         {
             ThrowIfDisposed();
 
-            if (child == null || child.m_IsComponent || !ReferenceEquals(child.Parent, this))
+            if (child == null || child.IsComponent || !ReferenceEquals(child.Parent, this))
             {
                 return false;
             }
@@ -191,43 +223,12 @@ namespace LYFramework
 
         public T AddComponent<T>() where T : Entity, new()
         {
-            return AddComponent(new T());
-        }
-
-        /// <summary>
-        /// 添加组件。一个 Entity 默认只能拥有一个相同运行时类型的组件。
-        /// </summary>
-        public T AddComponent<T>(T component) where T : Entity
-        {
             ThrowIfDisposed();
 
-            if (component == null)
-            {
-                throw new ArgumentNullException(nameof(component));
-            }
+			var component = Create<T>();
+			component.IsComponent = true;
+            component.ComponentParent = this;
 
-            component.ThrowIfDisposed();
-
-            if (component is Scene)
-            {
-                throw new InvalidOperationException("Scene cannot be added as a component.");
-            }
-
-            if (component.Parent != null || component.Scene != null)
-            {
-                throw new InvalidOperationException("Only a detached entity can be added as a component.");
-            }
-
-            var componentType = component.GetType();
-            m_Components ??= new Dictionary<Type, Entity>();
-            if (!m_Components.TryAdd(componentType, component))
-            {
-                throw new InvalidOperationException($"Component '{componentType.Name}' already exists on '{GetType().Name}'.");
-            }
-
-            component.m_IsComponent = true;
-            component.Parent = this;
-            component.ChangeScene(Scene);
             return component;
         }
 
@@ -252,7 +253,7 @@ namespace LYFramework
             return m_Components != null && m_Components.ContainsKey(typeof(T));
         }
 
-        public bool RemoveComponent<T>(bool dispose = true) where T : Entity
+        public bool RemoveComponent<T>() where T : Entity
         {
             ThrowIfDisposed();
 
@@ -261,59 +262,47 @@ namespace LYFramework
                 return false;
             }
 
-            if (dispose)
-            {
-                component.Dispose();
-            }
-            else
-            {
-                component.DetachFromParent();
-                component.ChangeScene(null);
-                component.m_IsComponent = false;
-            }
+			component.Dispose();
 
             return true;
         }
 
         /// <summary>
-        /// 递归销毁所有组件和子节点，并从父节点及 Scene 索引中移除。
+        /// 递归销毁所有组件和子节点，并从父节点及 World 索引中移除。
         /// </summary>
         public virtual void Dispose()
         {
-            if (m_IsDisposed)
+            if (IsDisposed)
             {
                 return;
             }
 
-            m_IsDisposed = true;
+            IsDisposed = true;
+            InstanceId = 0;
 
             if (m_Components != null)
             {
-                var components = new List<Entity>(m_Components.Values);
-                foreach (var component in components)
+                foreach (var component in m_Components.Values)
                 {
                     component.Dispose();
                 }
 
                 m_Components.Clear();
+				m_Components = null;
             }
 
             if (m_Children != null)
             {
-                var children = new List<Entity>(m_Children.Values);
-                foreach (var child in children)
+                foreach (var child in m_Children.Values)
                 {
                     child.Dispose();
                 }
 
                 m_Children.Clear();
+				m_Children = null;
             }
 
             DetachFromParent();
-            ChangeScene(null);
-
-            m_IsComponent = false;
-            InstanceId = 0;
         }
 
         private void DetachFromParent()
@@ -323,7 +312,7 @@ namespace LYFramework
                 return;
             }
 
-            if (m_IsComponent)
+            if (IsComponent)
             {
                 Parent.m_Components?.Remove(GetType());
             }
@@ -332,30 +321,34 @@ namespace LYFramework
                 Parent.m_Children?.Remove(Id);
             }
 
-            Parent = null;
+            m_Parent = null;
+			Domain = null;
         }
 
-        private void ChangeScene(Scene newScene)
+        private void ChangeDomain(EntityDomain newDomain)
         {
-            if (ReferenceEquals(Scene, newScene))
+            if (ReferenceEquals(Domain, newDomain))
             {
                 return;
             }
 
-            Scene?.UnregisterTree(this);
-            SetSceneRecursively(newScene);
-            newScene?.RegisterTree(this);
+            SetDomainRecursively(newDomain);
         }
 
-        private void SetSceneRecursively(Scene scene)
+        private void SetDomainRecursively(EntityDomain domain)
         {
-            Scene = scene;
+			if (Domain == null)
+			{
+				// todo:设置InstanceId
+			}
+
+            Domain = domain;
 
             if (m_Components != null)
             {
                 foreach (var component in m_Components.Values)
                 {
-                    component.SetSceneRecursively(scene);
+                    component.SetDomainRecursively(domain);
                 }
             }
 
@@ -363,14 +356,40 @@ namespace LYFramework
             {
                 foreach (var child in m_Children.Values)
                 {
-                    child.SetSceneRecursively(scene);
+                    child.SetDomainRecursively(domain);
                 }
             }
         }
 
+		private void OnAddChild(Entity entity)
+		{
+			Children.Add(entity.InstanceId, entity);
+		}
+
+		private void OnRemoveChild(Entity entity)
+		{
+			if (m_Children == null)
+				return;
+
+			m_Children.Remove(entity.InstanceId);
+		}
+
+		private void OnAddComponent(Entity entity)
+		{
+			Components.Add(entity.GetType(), entity);
+		}
+
+		private void OnRemoveComponent(Entity entity)
+		{
+			if (m_Components == null)
+				return;
+
+			m_Components.Remove(entity.GetType());
+		}
+
         private void ThrowIfDisposed()
         {
-            if (m_IsDisposed)
+            if (IsDisposed)
             {
                 throw new ObjectDisposedException(GetType().Name);
             }

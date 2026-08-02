@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## 最小入口规则
+
+- 请使用全中文跟我沟通（代码除外）。
+- 每次执行任何操作前，请先说明要做什么，以及为什么要这么做。
+
 ## 文档地位与适用范围
 
 - 本文件是 `Client/` 目录及其所有子目录的唯一仓库协作规范源。
@@ -53,12 +58,19 @@ Demo / LYGame  ──────>  LYFramework
 - `IController`/`ISystem` 通过 `IGetGameManager` 扩展方法获取依赖。避免在业务对象中绕过该边界新增更多全局单例。
 - 初始化和销毁应幂等。注册失败、初始化抛异常或部分初始化时，必须定义清晰的回滚与所有权规则。
 
-### Entity 与 Scene
+### Entity、Scene 与 World
 
-- Parent 拥有 Child 和 Component；默认移除会连带 `Dispose()`，`dispose: false` 才会产生游离对象。
-- Component 只能挂在一个 Parent 下，且同一 Parent 当前只允许一个相同运行时类型的 Component。
-- 改动 Entity 树时必须维护：无环、单一父节点、Scene 索引一致、重复销毁安全、遍历期间修改安全。
-- `GameManagerBase<T>` 独占一个 `World`，但自身不是 `Entity` 或 `Scene`。`World` 只管理 Scene 的所有权、生命周期和查询；`Scene` 是各自 Entity 树的根节点，并将自身及整棵树纳入 Id 索引。
+- `GameManagerBase<T>` 独占一个 `World`，但自身不是 `Entity`、`Scene` 或 Entity 树节点。
+- `World` 是 Entity 的运行时归属和快速查询边界。它应保存当前 World 内全部存活 Entity，包括根 Scene、树内 Child、Component 和尚未挂入树的游离 Entity，并以 `InstanceId` 建立索引。
+- `World` 的索引只用于生命周期管理和快速查找，不表达 Parent/Child 层级，也不替代 Scene 的逻辑归属。
+- 当前每个 `World` 固定拥有一个根 `Scene`。`Scene` 继承自 `Entity`，只作为逻辑隔离边界和 Entity 树根节点，不再维护 Entity 索引。
+- `Entity` 负责保持 Parent、Child 和 Component 层级。一个 Entity 最多只有一个 Parent；Child 与 Component 两种关系互斥；同一 Parent 当前只允许一个相同运行时类型的 Component。
+- Parent 拥有 Child 和 Component。默认移除应连带 `Dispose()`；若以后支持游离操作，必须由显式 API 转移所有权，且 Entity 仍由原 World 管理，直到销毁或明确迁移到另一个 World。
+- `Id` 表示稳定标识，`InstanceId` 表示当前生命周期实例。World 的快速查询键使用 `InstanceId`；存活实例的 `InstanceId` 必须非 0、在 World 内唯一，销毁后置为 0 并从索引移除。
+- 创建、挂接、移除、迁移和销毁 Entity 时，必须同步维护 Parent/Child 或 Component 关系、Scene 归属以及 World 索引。任何一步失败都应回滚，不能留下半挂接对象或脏索引。
+- 同一棵 Entity 树中的 Parent、Child、Component 和 Scene 必须属于同一个 World。禁止跨 World 直接挂接；跨 World 迁移若以后支持，必须使用显式且原子的迁移流程。
+- 改动 Entity 树时必须维护：无环、单一父节点、关系类型互斥、Scene 归属一致、World 索引一致、重复销毁安全、遍历期间修改安全。
+- 当前 `World.Add/Remove/Get` 只是索引骨架，Entity 创建、`InstanceId` 分配、自动注册、销毁注销以及游离 Entity 清理尚未闭环；新增调用方不得假定这些流程已经自动完成。
 - `LYFramework.Scene` 容易与 Unity Scene 类型混淆；引用两者的文件使用别名或完整限定名。
 
 ### Event
@@ -120,7 +132,7 @@ Demo / LYGame  ──────>  LYFramework
 
 | 修改区域 | 最低验证 |
 | --- | --- |
-| Core/Entity | Add/Remove/Reparent、环检测、Component 唯一性、Scene 索引、递归/重复 Dispose |
+| Core/Entity | World 注册/查询/注销、InstanceId 唯一性、Add/Remove/Reparent、环检测、Component 唯一性、Scene 归属、递归/重复 Dispose |
 | Event | Send/Post 类型一致、派发中增删监听、监听异常、Dispose、跨线程 Post（若支持） |
 | ReferencePool | 首次 Acquire、重复复用、Clear、null/重复/错误 Release、Clear 全池 |
 | Network | 本机 loopback、分段头/包体、部分发送、断线、重连、超长包、序列化/反序列化异常 |

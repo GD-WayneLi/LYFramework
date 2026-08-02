@@ -3,7 +3,7 @@
     public interface IGameManager
     {
         /// <summary>
-        /// 获取当前游戏的 World。World 仅负责管理 Scene 的生命周期与查询。
+        /// 获取当前游戏的 World。World 固定拥有一个 EntityDomain 根节点，并管理全部 Entity 的生命周期与查询。
         /// </summary>
         World World { get; }
 

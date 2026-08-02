@@ -5,7 +5,7 @@ using LYFramework.Log;
 namespace LYFramework
 {
     /// <summary>
-    /// 游戏的全局管理器，负责服务注册并持有管理 Scene 的 World。
+    /// 游戏的全局管理器，负责服务注册并持有管理 Entity 与唯一 EntityDomain 根节点的 World。
     /// </summary>
     public abstract class GameManagerBase<T> : IGameManager, IDisposable where T : GameManagerBase<T>, new()
     {
@@ -28,7 +28,7 @@ namespace LYFramework
         private readonly Dictionary<Type, ISystem> m_Systems = new();
 
         /// <summary>
-        /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁其中的全部 Scene。
+        /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁根 EntityDomain 与全部 Entity。
         /// </summary>
         public World World { get; } = new();
 
