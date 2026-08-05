@@ -1,0 +1,16 @@
+{
+    "name": "LYUnity",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a5aaedd5e73e9e144b40c270ba6e0469"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
