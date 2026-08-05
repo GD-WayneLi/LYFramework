@@ -10,8 +10,6 @@ namespace LYFramework
     public abstract class GameManagerBase<T> : IGameManager, IDisposable where T : GameManagerBase<T>, new()
     {
         private static T _gameManager;
-        private bool m_IsDisposed;
-
         public static T Instance
         {
             get
@@ -24,15 +22,16 @@ namespace LYFramework
             }
         }
 
-        private readonly Dictionary<Type, IUtility> m_Utilities = new();
-        private readonly Dictionary<Type, ISystem> m_Systems = new();
+        private bool m_IsDisposed;
+        public bool IsDisposed => m_IsDisposed;
 
         /// <summary>
         /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁根 EntityDomain 与全部 Entity。
         /// </summary>
         public World World { get; } = new();
 
-        public bool IsDisposed => m_IsDisposed;
+        private readonly Dictionary<Type, IUtility> m_Utilities = new();
+        private readonly Dictionary<Type, ISystem> m_Systems = new();
 
         public abstract void Init();
 

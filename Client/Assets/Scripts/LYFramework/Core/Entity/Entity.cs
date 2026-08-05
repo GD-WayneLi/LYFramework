@@ -19,6 +19,8 @@ namespace LYFramework
     /// </summary>
     public class Entity : IDisposable
     {
+        private static long s_InstanceIdGenerator;
+
         private Dictionary<long, Entity> m_Children;
 		public Dictionary<long, Entity> Children
 		{
@@ -98,7 +100,7 @@ namespace LYFramework
 					throw new InvalidOperationException("An entity cannot be its own child.");
 				}
 
-				if (Domain == null)
+				if (value.Domain == null)
 				{
                     throw new Exception($"Parent domain is null: {GetType().Name}, {value.GetType().Name}");
 				}
@@ -168,13 +170,18 @@ namespace LYFramework
 		static T Create<T>() where T : Entity
 		{
 			var entity = Activator.CreateInstance(typeof(T)) as T;
-            entity.Id = 0;
+			if (entity == null)
+			{
+				throw new InvalidOperationException($"Unable to create entity: {typeof(T).FullName}");
+			}
+
+			entity.InstanceId = Interlocked.Increment(ref s_InstanceIdGenerator);
 			entity.m_Status = EntityStatus.None;
 
             return entity;
 		}
 
-        public T AddChild<T>() where T : Entity, new()
+        public T AddChild<T>() where T : Entity
         {
             ThrowIfDisposed();
 
@@ -318,7 +325,7 @@ namespace LYFramework
             }
             else
             {
-                Parent.m_Children?.Remove(Id);
+				Parent.m_Children?.Remove(InstanceId);
             }
 
             m_Parent = null;
