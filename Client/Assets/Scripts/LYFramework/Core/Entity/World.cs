@@ -13,7 +13,15 @@ namespace LYFramework
         {
         }
 
-        public World(EntityDomain domain)
+        public World(EntityDomain domain) : this(domain, null)
+        {
+        }
+
+        internal World(Action<Entity> componentAwake) : this(new EntityDomain(), componentAwake)
+        {
+        }
+
+        private World(EntityDomain domain, Action<Entity> componentAwake)
         {
             if (domain == null)
             {
@@ -26,6 +34,7 @@ namespace LYFramework
             }
 
             Domain = domain;
+            Domain.SetComponentAwakeHandler(componentAwake);
         }
 
         /// <summary>

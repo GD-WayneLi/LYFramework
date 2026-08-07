@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace LYFramework
 {
@@ -8,9 +7,27 @@ namespace LYFramework
     /// </summary>
     public class EntityDomain : Entity
     {
+        private Action<Entity> m_ComponentAwakeHandler;
+
         public EntityDomain()
         {
             Domain = this;
         }
+
+		internal void SetComponentAwakeHandler(Action<Entity> componentAwakeHandler)
+		{
+			m_ComponentAwakeHandler = componentAwakeHandler;
+		}
+
+		internal void OnComponentAwake(Entity component)
+		{
+			m_ComponentAwakeHandler?.Invoke(component);
+		}
+
+		public override void Dispose()
+		{
+			m_ComponentAwakeHandler = null;
+			base.Dispose();
+		}
 	}
 }

@@ -232,9 +232,24 @@ namespace LYFramework
         {
             ThrowIfDisposed();
 
+			if (HasComponent<T>())
+			{
+				throw new InvalidOperationException($"Component already exists: {typeof(T).Name}");
+			}
+
 			var component = Create<T>();
 			component.IsComponent = true;
-            component.ComponentParent = this;
+
+			try
+			{
+				component.ComponentParent = this;
+				component.Domain.OnComponentAwake(component);
+			}
+			catch
+			{
+				component.Dispose();
+				throw;
+			}
 
             return component;
         }

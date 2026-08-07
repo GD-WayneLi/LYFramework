@@ -28,10 +28,16 @@ namespace LYFramework
         /// <summary>
         /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁根 EntityDomain 与全部 Entity。
         /// </summary>
-        public World World { get; } = new();
+        public World World { get; }
 
         private readonly Dictionary<Type, IUtility> m_Utilities = new();
         private readonly Dictionary<Type, ISystem> m_Systems = new();
+        private readonly Dictionary<Type, List<ISystemAwakeInvoker>> m_SystemAwakes = new();
+
+        protected GameManagerBase()
+        {
+            World = new World(OnComponentAwake);
+        }
 
         public abstract void Init();
 
@@ -50,6 +56,7 @@ namespace LYFramework
             }
 
             m_Systems.Clear();
+            m_SystemAwakes.Clear();
             m_Utilities.Clear();
 
             World.Dispose();
@@ -97,7 +104,85 @@ namespace LYFramework
                 return;
             }
 
-            instance.Init(this);
+            try
+            {
+                instance.Init(this);
+                RegisterSystemAwakes(instance);
+            }
+            catch (Exception initException)
+            {
+                m_Systems.Remove(type);
+
+                try
+                {
+                    instance.Dispose();
+                }
+                catch (Exception disposeException)
+                {
+                    throw new AggregateException(
+                        $"System initialization and rollback both failed: {type.Name}",
+                        initException,
+                        disposeException);
+                }
+
+                throw;
+            }
+        }
+
+        private void RegisterSystemAwakes(ISystem system)
+        {
+            var interfaceTypes = system.GetType().GetInterfaces();
+            var invokers = new List<(Type ComponentType, ISystemAwakeInvoker Invoker)>();
+
+            foreach (var interfaceType in interfaceTypes)
+            {
+                if (!interfaceType.IsGenericType ||
+                    interfaceType.GetGenericTypeDefinition() != typeof(ISystemAwake<>))
+                {
+                    continue;
+                }
+
+                var componentType = interfaceType.GetGenericArguments()[0];
+                var invokerType = typeof(SystemAwakeInvoker<>).MakeGenericType(componentType);
+                var invoker = Activator.CreateInstance(invokerType, system) as ISystemAwakeInvoker;
+                if (invoker == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Unable to create system awake invoker: {system.GetType().Name}, {componentType.Name}");
+                }
+
+                invokers.Add((componentType, invoker));
+            }
+
+            foreach (var item in invokers)
+            {
+                if (!m_SystemAwakes.TryGetValue(item.ComponentType, out var componentInvokers))
+                {
+                    componentInvokers = new List<ISystemAwakeInvoker>();
+                    m_SystemAwakes.Add(item.ComponentType, componentInvokers);
+                }
+
+                componentInvokers.Add(item.Invoker);
+            }
+        }
+
+        private void OnComponentAwake(Entity component)
+        {
+            if (m_IsDisposed)
+            {
+                throw new ObjectDisposedException(GetType().Name);
+            }
+
+            if (!m_SystemAwakes.TryGetValue(component.GetType(), out var invokers))
+            {
+                return;
+            }
+
+            var count = invokers.Count;
+            for (var i = 0; i < count; i++)
+            {
+                invokers[i].Invoke(component);
+            }
         }
 
         public TUtility GetUtility<TUtility>() where TUtility : class, IUtility

@@ -15,6 +15,7 @@
 - 重复注册、初始化异常和部分初始化必须有确定结果与回滚，不得只记录日志后留下半初始化对象。
 - 初始化顺序必须确定，销毁默认按初始化逆序执行。
 - System、Utility、Controller 的生命周期接口需要保持一致语义；修改其中之一时检查所有实现类。
+- System 可通过 `ISystemAwake<T>` 声明其关注的 Component。GameManager 在 System 初始化成功后缓存处理器；`AddComponent<T>()` 完成 Parent、Domain 和集合挂载后同步触发，回调异常必须回滚本次组件添加。
 - 单例销毁后必须可以安全重建，且旧对象或异步回调不能访问新实例。
 
 ## World：所有权与快速索引
@@ -31,6 +32,7 @@
 ## EntityDomain：逻辑隔离
 
 - `EntityDomain` 继承自 `Entity`，用于表示逻辑隔离边界和 Entity 树根节点，不负责保存 World 的全量 Entity 索引。
+- `EntityDomain` 保存所属逻辑域的 Component 生命周期回调入口；它只负责转发生命周期通知，System 处理器的注册、缓存和执行仍由 GameManager 管理。
 - 当前一个 World 只有一个根 EntityDomain。若以后扩展多个逻辑域，World 仍是统一索引和生命周期边界，不能重新把全局索引分散回各个 EntityDomain。
 - 普通 Entity 的 `Domain` 表示其当前所在的逻辑树；游离 Entity 的 Domain 可以为 null，但仍必须保留 World 归属和 World 索引。
 - 挂接、移除或迁移子树时，Domain 归属必须递归更新到全部 Child 和 Component。
