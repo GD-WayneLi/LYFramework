@@ -1,6 +1,6 @@
 ﻿namespace LYFramework
 {
-    public interface ISystem : INeedInit, IGetUtility
+    public interface ISystem : IGetUtility
     {
         
     }

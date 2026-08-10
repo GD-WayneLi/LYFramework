@@ -169,7 +169,7 @@ namespace LYFramework
 
 		static T Create<T>() where T : Entity
 		{
-			var entity = Activator.CreateInstance(typeof(T)) as T;
+			var entity = Activator.CreateInstance(typeof(T), true) as T;
 			if (entity == null)
 			{
 				throw new InvalidOperationException($"Unable to create entity: {typeof(T).FullName}");
