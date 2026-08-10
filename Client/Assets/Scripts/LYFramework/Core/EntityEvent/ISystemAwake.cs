@@ -7,7 +7,8 @@ namespace LYFramework
     public interface ISystemAwake<T> where T : Entity
     {
         /// <summary>
-        /// 初始化刚完成挂载的 Component。抛出异常将使本次添加操作回滚。
+        /// 初始化刚完成挂载的 Component。抛出异常将使本次添加操作回滚，
+        /// 但不会触发 Component 的 Dispose 生命周期。
         /// </summary>
         void Awake(T component);
     }

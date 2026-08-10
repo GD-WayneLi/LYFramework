@@ -23,6 +23,7 @@ namespace LYFramework
         }
 
         private bool m_IsDisposed;
+        private bool m_IsDisposing;
         public bool IsDisposed => m_IsDisposed;
 
         /// <summary>
@@ -32,40 +33,72 @@ namespace LYFramework
 
         private readonly Dictionary<Type, IUtility> m_Utilities = new();
         private readonly Dictionary<Type, ISystem> m_Systems = new();
-        private readonly Dictionary<Type, List<ISystemAwakeInvoker>> m_SystemAwakes = new();
+        private readonly List<ISystem> m_SystemRegistrationOrder = new();
+        private readonly EntityLifecycle m_EntityLifecycle = new();
 
         protected GameManagerBase()
         {
-            World = new World(OnComponentAwake);
+            World = new World(m_EntityLifecycle);
         }
 
         public abstract void Init();
 
+        public void Update()
+        {
+            ThrowIfUnavailable();
+            m_EntityLifecycle.Update();
+        }
+
         public virtual void Dispose()
         {
-            if (m_IsDisposed)
+            if (m_IsDisposed || m_IsDisposing)
             {
                 return;
             }
 
-            m_IsDisposed = true;
+            m_IsDisposing = true;
+            List<Exception> exceptions = null;
 
-            foreach (var system in m_Systems)
+            try
             {
-                system.Value.Dispose();
+                World.Dispose();
+            }
+            catch (Exception exception)
+            {
+                exceptions = new List<Exception> { exception };
             }
 
+            for (var i = m_SystemRegistrationOrder.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    m_SystemRegistrationOrder[i].Dispose();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= new List<Exception>()).Add(exception);
+                }
+            }
+
+            m_EntityLifecycle.Dispose();
+            m_SystemRegistrationOrder.Clear();
             m_Systems.Clear();
-            m_SystemAwakes.Clear();
             m_Utilities.Clear();
 
-            World.Dispose();
-
+            m_IsDisposed = true;
+            m_IsDisposing = false;
             _gameManager = null;
+
+            if (exceptions != null)
+            {
+                throw new AggregateException($"GameManager disposal failed: {GetType().Name}", exceptions);
+            }
         }
 
         public void RegisterUtility<TUtility>(TUtility instance = default) where TUtility : IUtility
         {
+            ThrowIfUnavailable();
+
             var type = typeof(TUtility);
             if (instance == null)
             {
@@ -86,6 +119,8 @@ namespace LYFramework
 
         public void RegisterSystem<TSystem>(TSystem instance = default) where TSystem : ISystem
         {
+            ThrowIfUnavailable();
+
             var type = typeof(TSystem);
             if (instance == null)
             {
@@ -107,7 +142,8 @@ namespace LYFramework
             try
             {
                 instance.Init(this);
-                RegisterSystemAwakes(instance);
+                m_EntityLifecycle.RegisterSystem(instance);
+                m_SystemRegistrationOrder.Add(instance);
             }
             catch (Exception initException)
             {
@@ -129,59 +165,11 @@ namespace LYFramework
             }
         }
 
-        private void RegisterSystemAwakes(ISystem system)
+        private void ThrowIfUnavailable()
         {
-            var interfaceTypes = system.GetType().GetInterfaces();
-            var invokers = new List<(Type ComponentType, ISystemAwakeInvoker Invoker)>();
-
-            foreach (var interfaceType in interfaceTypes)
-            {
-                if (!interfaceType.IsGenericType ||
-                    interfaceType.GetGenericTypeDefinition() != typeof(ISystemAwake<>))
-                {
-                    continue;
-                }
-
-                var componentType = interfaceType.GetGenericArguments()[0];
-                var invokerType = typeof(SystemAwakeInvoker<>).MakeGenericType(componentType);
-                var invoker = Activator.CreateInstance(invokerType, system) as ISystemAwakeInvoker;
-                if (invoker == null)
-                {
-                    throw new InvalidOperationException(
-                        $"Unable to create system awake invoker: {system.GetType().Name}, {componentType.Name}");
-                }
-
-                invokers.Add((componentType, invoker));
-            }
-
-            foreach (var item in invokers)
-            {
-                if (!m_SystemAwakes.TryGetValue(item.ComponentType, out var componentInvokers))
-                {
-                    componentInvokers = new List<ISystemAwakeInvoker>();
-                    m_SystemAwakes.Add(item.ComponentType, componentInvokers);
-                }
-
-                componentInvokers.Add(item.Invoker);
-            }
-        }
-
-        private void OnComponentAwake(Entity component)
-        {
-            if (m_IsDisposed)
+            if (m_IsDisposed || m_IsDisposing)
             {
                 throw new ObjectDisposedException(GetType().Name);
-            }
-
-            if (!m_SystemAwakes.TryGetValue(component.GetType(), out var invokers))
-            {
-                return;
-            }
-
-            var count = invokers.Count;
-            for (var i = 0; i < count; i++)
-            {
-                invokers[i].Invoke(component);
             }
         }
 

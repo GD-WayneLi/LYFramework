@@ -1,5 +1,3 @@
-using System;
-
 namespace LYFramework
 {
     /// <summary>
@@ -7,27 +5,43 @@ namespace LYFramework
     /// </summary>
     public class EntityDomain : Entity
     {
-        private Action<Entity> m_ComponentAwakeHandler;
+        private EntityLifecycle m_EntityLifecycle;
 
         public EntityDomain()
         {
             Domain = this;
         }
 
-		internal void SetComponentAwakeHandler(Action<Entity> componentAwakeHandler)
+		internal void SetEntityLifecycle(EntityLifecycle entityLifecycle)
 		{
-			m_ComponentAwakeHandler = componentAwakeHandler;
+			m_EntityLifecycle = entityLifecycle;
 		}
 
 		internal void OnComponentAwake(Entity component)
 		{
-			m_ComponentAwakeHandler?.Invoke(component);
+			m_EntityLifecycle?.Awake(component);
+		}
+
+		internal void OnComponentDispose(Entity component)
+		{
+			m_EntityLifecycle?.DisposeComponent(component);
+		}
+
+		internal void OnComponentRollback(Entity component)
+		{
+			m_EntityLifecycle?.Forget(component);
 		}
 
 		public override void Dispose()
 		{
-			m_ComponentAwakeHandler = null;
-			base.Dispose();
+			try
+			{
+				base.Dispose();
+			}
+			finally
+			{
+				m_EntityLifecycle = null;
+			}
 		}
 	}
 }

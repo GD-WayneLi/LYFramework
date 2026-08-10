@@ -7,6 +7,11 @@
         /// </summary>
         World World { get; }
 
+        /// <summary>
+        /// 同步更新当前所有声明了 ISystemUpdate 生命周期的存活 Component。
+        /// </summary>
+        void Update();
+
         void RegisterUtility<T>(T instance = default) where T : IUtility;
         void RegisterSystem<T>(T instance = default) where T : ISystem;
         

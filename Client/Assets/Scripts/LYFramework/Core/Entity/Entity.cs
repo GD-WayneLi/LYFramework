@@ -247,7 +247,6 @@ namespace LYFramework
 			}
 			catch
 			{
-				component.Dispose();
 				throw;
 			}
 
@@ -300,31 +299,71 @@ namespace LYFramework
             }
 
             IsDisposed = true;
-            InstanceId = 0;
+            List<Exception> exceptions = null;
 
-            if (m_Components != null)
-            {
-                foreach (var component in m_Components.Values)
-                {
-                    component.Dispose();
-                }
-
-                m_Components.Clear();
-				m_Components = null;
-            }
-
+            // 销毁顺序：子节点 -> 自身组件 -> 自己
+            // 子节点先销毁
             if (m_Children != null)
             {
-                foreach (var child in m_Children.Values)
+				var children = new List<Entity>(m_Children.Values);
+
+				foreach (var child in children)
                 {
-                    child.Dispose();
+					try
+					{
+						child.Dispose();
+					}
+					catch (Exception exception)
+					{
+						(exceptions ??= new List<Exception>()).Add(exception);
+					}
                 }
 
-                m_Children.Clear();
+				m_Children.Clear();
 				m_Children = null;
             }
 
+            // 销毁自身组件
+            if (m_Components != null)
+            {
+				var components = new List<Entity>(m_Components.Values);
+
+				foreach (var component in components)
+                {
+					try
+					{
+						component.Dispose();
+					}
+					catch (Exception exception)
+					{
+						(exceptions ??= new List<Exception>()).Add(exception);
+					}
+                }
+
+				m_Components.Clear();
+				m_Components = null;
+            }
+
+            // 销毁自己
+			if (IsComponent && Domain != null)
+			{
+				try
+				{
+					Domain.OnComponentDispose(this);
+				}
+				catch (Exception exception)
+				{
+					exceptions = new List<Exception> { exception };
+				}
+			}
+
             DetachFromParent();
+			InstanceId = 0;
+
+			if (exceptions != null)
+			{
+				throw new AggregateException($"Entity disposal failed: {GetType().Name}", exceptions);
+			}
         }
 
         private void DetachFromParent()

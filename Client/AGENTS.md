@@ -4,6 +4,8 @@
 
 - 请使用全中文跟我沟通（代码除外）。
 - 每次执行任何操作前，请先说明要做什么，以及为什么要这么做。
+- 只修改沟本次通相关代码，不要自行修改其他代码，如果需要修改其他代码，请进行询问。
+- 代码的方法定义不要换行
 
 ## 文档地位与适用范围
 
@@ -54,6 +56,8 @@ Demo / LYGame  ──────>  LYFramework
 
 - `IGameManager` 是 System 和 Utility 的注册/查询入口。
 - `RegisterSystem` 当前会立即调用 `ISystem.Init(IGameManager)`；System 销毁由 `GameManagerBase.Dispose()` 触发。
+- System 可通过 `ISystemAwake<T>`、`ISystemUpdate<T>` 和 `ISystemDispose<T>` 接收 Component 生命周期。`EntityLifecycle` 负责处理器注册、分发和 Update 队列，GameManager 只持有并驱动它。调用方每帧显式调用 `IGameManager.Update()`；销毁 GameManager 时先销毁 World 中的 Component，再按注册逆序销毁 System。
+- Awake 抛异常时，框架必须原子回滚刚创建的 Component 并直接保留原异常；回滚不得调用公开 `Dispose()`，也不得触发 `ISystemDispose<T>`。
 - `IUtility` 当前只是标记接口，注册时不会自动初始化，`GameManagerBase.Dispose()` 也不会销毁 Utility。若统一生命周期，必须同时修改接口、注册流程、异常回滚、销毁顺序和测试，不要只改其中一处。
 - `IController`/`ISystem` 通过 `IGetGameManager` 扩展方法获取依赖。避免在业务对象中绕过该边界新增更多全局单例。
 - 初始化和销毁应幂等。注册失败、初始化抛异常或部分初始化时，必须定义清晰的回滚与所有权规则。
@@ -63,7 +67,7 @@ Demo / LYGame  ──────>  LYFramework
 - `GameManagerBase<T>` 独占一个 `World`，但自身不是 `Entity`、`EntityDomain` 或 Entity 树节点。
 - `World` 是 Entity 的运行时归属和快速查询边界。它应保存当前 World 内全部存活 Entity，包括根 EntityDomain、树内 Child、Component 和尚未挂入树的游离 Entity，并以 `InstanceId` 建立索引。
 - `World` 的索引只用于生命周期管理和快速查找，不表达 Parent/Child 层级，也不替代 EntityDomain 的逻辑归属。
-- 当前每个 `World` 固定拥有一个根 `EntityDomain`。`EntityDomain` 继承自 `Entity`，只作为逻辑隔离边界和 Entity 树根节点，不再维护 Entity 索引。
+- 当前每个 `World` 固定拥有一个根 `EntityDomain`。`EntityDomain` 继承自 `Entity`，作为逻辑隔离边界、Entity 树根节点和 `EntityLifecycle` 转发入口，不维护 Entity 索引或 System 处理器。
 - `Entity` 负责保持 Parent、Child 和 Component 层级。一个 Entity 最多只有一个 Parent；Child 与 Component 两种关系互斥；同一 Parent 当前只允许一个相同运行时类型的 Component。
 - Parent 拥有 Child 和 Component。默认移除应连带 `Dispose()`；若以后支持游离操作，必须由显式 API 转移所有权，且 Entity 仍由原 World 管理，直到销毁或明确迁移到另一个 World。
 - `Id` 表示稳定标识，`InstanceId` 表示当前生命周期实例。World 的快速查询键使用 `InstanceId`；存活实例的 `InstanceId` 必须非 0、在 World 内唯一，销毁后置为 0 并从索引移除。

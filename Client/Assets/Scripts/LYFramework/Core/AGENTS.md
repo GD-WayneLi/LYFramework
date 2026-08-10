@@ -10,12 +10,14 @@
 
 ## GameManager 与服务注册
 
-- `GameManagerBase<T>` 持有并独占一个 `World`，自身不参与 Entity 树。销毁 GameManager 时必须先按确定顺序销毁服务，再销毁 World。
+- `GameManagerBase<T>` 持有并独占一个 `World`，自身不参与 Entity 树。销毁 GameManager 时先销毁 World 中的 Entity 与 Component，再销毁 System，保证 Component Dispose 生命周期期间对应 System 仍然有效。
 - 明确服务注册键是“契约类型”还是“实现类型”，注册与查询必须使用同一规则。
 - 重复注册、初始化异常和部分初始化必须有确定结果与回滚，不得只记录日志后留下半初始化对象。
 - 初始化顺序必须确定，销毁默认按初始化逆序执行。
 - System、Utility、Controller 的生命周期接口需要保持一致语义；修改其中之一时检查所有实现类。
-- System 可通过 `ISystemAwake<T>` 声明其关注的 Component。GameManager 在 System 初始化成功后缓存处理器；`AddComponent<T>()` 完成 Parent、Domain 和集合挂载后同步触发，回调异常必须回滚本次组件添加。
+- System 可通过 `ISystemAwake<T>`、`ISystemUpdate<T>` 和 `ISystemDispose<T>` 声明其关注的 Component。System 初始化成功后由 `EntityLifecycle` 缓存处理器；Awake 在挂载完成后同步触发，Update 由 `IGameManager.Update()` 委托驱动，Dispose 在 Parent、Domain 和 InstanceId 清理前同步触发。
+- 只有 System 注册后创建的 Component 才接收上述生命周期。Update 中新增的 Component 从下一帧开始执行；回调中销毁的 Component 不得继续执行后续 Update System。
+- Awake 抛异常时必须使用不触发 Dispose 生命周期的内部路径回滚整个新建子树，并原样抛出 Awake 异常；不得让半挂载 Component 留在 Entity 树或 Update 队列中。
 - 单例销毁后必须可以安全重建，且旧对象或异步回调不能访问新实例。
 
 ## World：所有权与快速索引
@@ -32,7 +34,7 @@
 ## EntityDomain：逻辑隔离
 
 - `EntityDomain` 继承自 `Entity`，用于表示逻辑隔离边界和 Entity 树根节点，不负责保存 World 的全量 Entity 索引。
-- `EntityDomain` 保存所属逻辑域的 Component 生命周期回调入口；它只负责转发生命周期通知，System 处理器的注册、缓存和执行仍由 GameManager 管理。
+- `EntityDomain` 保存所属逻辑域的 `EntityLifecycle` 引用，只负责转发 Component Awake/Dispose/回滚通知；处理器注册、缓存和 Update 队列由 `EntityLifecycle` 管理。
 - 当前一个 World 只有一个根 EntityDomain。若以后扩展多个逻辑域，World 仍是统一索引和生命周期边界，不能重新把全局索引分散回各个 EntityDomain。
 - 普通 Entity 的 `Domain` 表示其当前所在的逻辑树；游离 Entity 的 Domain 可以为 null，但仍必须保留 World 归属和 World 索引。
 - 挂接、移除或迁移子树时，Domain 归属必须递归更新到全部 Child 和 Component。

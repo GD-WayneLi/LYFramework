@@ -5,23 +5,15 @@ namespace LYFramework
 {
     public sealed class World : IDisposable
     {
-		private Dictionary<long, Entity> m_Entitys = new();
+        private Dictionary<long, Entity> m_Entitys = new();
 
         private bool m_IsDisposed;
 
-        public World() : this(new EntityDomain())
+        internal World(EntityLifecycle entityLifecycle) : this(new EntityDomain(), entityLifecycle)
         {
         }
 
-        public World(EntityDomain domain) : this(domain, null)
-        {
-        }
-
-        internal World(Action<Entity> componentAwake) : this(new EntityDomain(), componentAwake)
-        {
-        }
-
-        private World(EntityDomain domain, Action<Entity> componentAwake)
+        private World(EntityDomain domain, EntityLifecycle entityLifecycle)
         {
             if (domain == null)
             {
@@ -34,7 +26,7 @@ namespace LYFramework
             }
 
             Domain = domain;
-            Domain.SetComponentAwakeHandler(componentAwake);
+            Domain.SetEntityLifecycle(entityLifecycle);
         }
 
         /// <summary>
@@ -56,20 +48,20 @@ namespace LYFramework
             Domain.Dispose();
         }
 
-		public void Add(Entity entity)
-		{
-			m_Entitys.Add(entity.InstanceId, entity);
-		}
+        public void Add(Entity entity)
+        {
+            m_Entitys.Add(entity.InstanceId, entity);
+        }
 
-		public void Remove(long instanceId)
-		{
-			m_Entitys.Remove(instanceId);
-		}
+        public void Remove(long instanceId)
+        {
+            m_Entitys.Remove(instanceId);
+        }
 
-		public Entity Get(long instanceId)
-		{
-			m_Entitys.TryGetValue(instanceId, out var entity);
-			return entity;
-		}
+        public Entity Get(long instanceId)
+        {
+            m_Entitys.TryGetValue(instanceId, out var entity);
+            return entity;
+        }
     }
 }
