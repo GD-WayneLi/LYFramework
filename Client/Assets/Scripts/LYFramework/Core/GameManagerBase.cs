@@ -33,6 +33,7 @@ namespace LYFramework
 
         private readonly Dictionary<Type, IUtility> m_Utilities = new();
         private readonly Dictionary<Type, ISystem> m_Systems = new();
+        private readonly List<ISystem> m_SystemRegistrationOrder = new();
         private readonly EntityLifecycle m_EntityLifecycle = new();
 
         protected GameManagerBase()
@@ -67,7 +68,20 @@ namespace LYFramework
                 exceptions = new List<Exception> { exception };
             }
 
+            for (var i = m_SystemRegistrationOrder.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    m_SystemRegistrationOrder[i].Dispose();
+                }
+                catch (Exception exception)
+                {
+                    (exceptions ??= new List<Exception>()).Add(exception);
+                }
+            }
+
             m_EntityLifecycle.Dispose();
+            m_SystemRegistrationOrder.Clear();
             m_Systems.Clear();
             m_Utilities.Clear();
 
@@ -127,11 +141,23 @@ namespace LYFramework
 
             try
             {
+                instance.Init(this);
                 m_EntityLifecycle.RegisterSystem(instance);
+                m_SystemRegistrationOrder.Add(instance);
             }
-            catch
+            catch (Exception initException)
             {
                 m_Systems.Remove(type);
+
+                try
+                {
+                    instance.Dispose();
+                }
+                catch (Exception disposeException)
+                {
+                    throw new AggregateException($"System initialization and rollback both failed: {type.Name}", initException, disposeException);
+                }
+
                 throw;
             }
         }
@@ -152,6 +178,12 @@ namespace LYFramework
         public TSystem GetSystem<TSystem>() where TSystem : class, ISystem
         {
             return m_Systems.GetValueOrDefault(typeof(TSystem)) as TSystem;
+        }
+
+        public IReadOnlyList<ISystem> GetSystems()
+        {
+            ThrowIfUnavailable();
+            return m_SystemRegistrationOrder.ToArray();
         }
     }
 }

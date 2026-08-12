@@ -1,40 +1,52 @@
 # UI 模块规范
 
-本文件继承 `Assets/Scripts/LYFramework/AGENTS.md`，适用于 UI 抽象、Controller、层级和 UIManager。
+本文件继承 `Assets/Scripts/LYFramework/AGENTS.md`，适用于 UI 数据组件、System、层级和资源生命周期。
 
-## 依赖边界
+## 数据与 Entity 关系
 
-- UI 可以依赖 Core、Log 和 Resource 抽象，不得依赖 `LYGame` 的具体加载器、Prefab 或业务界面。
-- Unity GameObject/Canvas 的具体实现放在 `LYGame` 或独立 Unity 适配程序集。
-- UIController 使用 System/Utility 前必须完成 IGameManager 注入。
+- UIManager 和每个 UI 实例都使用基础 `Entity` 作为生命周期主体，不新增仅用于标识的 Entity 子类。
+- `UIManagerComponent` 必须挂载在 UIManager 所属 Entity 上，只保存 UI 栈、`UILifecycle`、层级配置和依赖引用。
+- 每个 UI Entity 必须同时挂载一个通用 `UIComponent` 和一个具体 `UIXxxComponent`；二者是兄弟 Component，具体 Component 不继承 `UIComponent`。
+- UIManager 的栈保存 UI Entity，不保存具体 Component。关闭 UI 时销毁整个 UI Entity，由 Entity 统一销毁其 Component。
 
-## 生命周期状态
+## System 与生命周期
 
-- 使用明确状态表示 Created、Loading、Open、Closing、Closed/Disposed，禁止用多个松散布尔值拼接隐含状态。
-- Load 成功回调只执行一次；加载失败、取消、加载中关闭和重复关闭都有确定结果。
-- OnOpen 只在资源准备完成后执行，OnClose 只对已打开或明确进入关闭流程的 UI 执行。
-- Dispose 幂等，并完成资源卸载、事件解绑、Controller 清理和用户数据释放。
+- `UIManagerSystem` 和 `UISystem` 是无状态、可替换的实例 System，不得保存特定 Entity 或 Component。
+- 具体 `UIXxxSystem` 必须注册到 GameManager，并通过 `IUILoaded<T>`、`IUIOpen<T>`、`IUIUpdate<T>`、`IUIClose<T>`、`IUIDepthChanged<T>`、`IUIVisibilityChanged<T>` 或 `IUIVisibilityPolicy<T>` 声明所处理的具体 UI Component。
+- 所有公共方法显式接收目标 Component；运行时数据只存放在 Component 中。
+- `UIManagerSystem` 通过 `ISystemAwake<UIManagerComponent>` 和 `ISystemDispose<UIManagerComponent>` 接入 Core 生命周期。
+- `UISystem` 通过 `ISystemAwake<UIComponent>`、`ISystemUpdate<UIComponent>` 和 `ISystemDispose<UIComponent>` 接入 Core 生命周期。
+- 必须先注册 `IUIManagerSystem`、`IUISystem` 和全部具体 `UIXxxSystem`，再创建 `UIManagerComponent`。其 Awake 生命周期从 GameManager 的 System 快照构建独立 `UILifecycle`；UI 更新统一由 `IGameManager.Update()` 驱动，不额外维护手工 Update 列表。
+- GameManager 销毁时先销毁 World，因此 UI Component Dispose 期间对应 System 仍然有效；不得改变这一依赖顺序。
+
+## UI 生命周期状态
+
+- 使用 `Created`、`Loading`、`Open`、`Closing`、`Closed`、`Disposed` 表示状态，禁止用松散布尔值组合隐含状态。
+- `OnOpen` 只在资源加载成功后执行；只有已经进入 Open 流程的 UI 才执行 `OnClose`。
+- Close、Entity Dispose、Manager Component Dispose 和 World Dispose 必须汇入同一资源释放路径，并保持幂等。
+- 加载中的 UI 被关闭后，迟到结果必须立即卸载，禁止重新打开已销毁 UI。
+- `UILifecycle` 按具体 Component 类型保存 UI 专属 Loaded/Open/Close/Update/Depth/Visible Invoker；不得重新引入委托式 `UITypeDefinition`。
+- GameManager 中的具体 UI System 发生替换后，使用 `RefreshUILifecycle` 从最新 System 快照原子重建 Invoker。
 
 ## 栈、层级与可见性
 
-- 明确一个 UI 类型是否允许多实例，以及 CloseUI/GetUI 对多实例选择第一个、最后一个还是指定实例。
-- Stack 顺序、Layer、Depth 是不同概念。Depth 应由 LayerGroup 的起始深度和组内顺序计算。
-- 打开、关闭或层级变化后统一重算可见性；被遮挡 UI 是否 Update 必须由策略明确。
-- 不在遍历 UI 列表时直接执行可能修改同一列表的用户回调。
+- Stack 表示打开顺序，Layer 表示显示层，Depth 表示 Layer 内最终渲染深度，三者不得混用。
+- `CloseUI<T>` 和 `GetUI<T>` 默认选择最早打开的同类型实例；`PopUI` 关闭最后打开的实例。
+- Depth 使用 `LayerGroup.StartDepth + 组内序号 * 100`；没有 LayerGroup 时以 Layer 值作为起始深度。
+- 打开、关闭和销毁 UI 后统一重算 Depth 与可见性。`HideLowerUI` 从栈顶向下遮挡较低 UI。
+- 遍历 UI 栈并调用用户回调时必须使用快照或受控修改流程。
 
-## 异步与资源所有权
+## 资源与线程
 
-- 加载回调必须回到 Unity 主线程。
-- UIManager 负责的资源与 UI 实例必须成对释放；关闭后的迟到加载结果要立即卸载，不能重新打开 UI。
-- 回调参数优先使用具体泛型类型或结果类型，避免只传 `UIBase` 和无法表达失败的回调。
-
-## 已知状态
-
-- 当前 `UIBase.Load()` 不调用完成回调，`m_IsPrepared` 从未设为 true，默认实现不会进入 OnOpen/OnUpdate。
-- 当前 `SetUIVisible()` 为空，LayerGroup 未接入，UIController 也没有在 UIManager 中初始化。
+- UI 可以依赖 Core、Log 和 Resource 抽象，不得依赖 LYUnity 的具体 Prefab、Canvas 或业务 UI。
+- Unity GameObject、Canvas、Addressables 等适配实现放在 LYUnity 或独立 Unity 适配程序集。
+- 资源加载完成回调必须回到 Unity 主线程。UI Entity 销毁后的迟到结果由发起加载时捕获的 ResourceUtility 卸载。
+- 资源获取和释放必须严格成对；OnClose、Unload 或出栈回调抛异常时仍须继续完成其余清理。
 
 ## 最低验证
 
-- 同步加载、异步加载、加载失败、加载中关闭、重复打开/关闭和 CloseAll。
-- 多 Layer/多实例的 Depth、栈顺序、Pop/Get/Has/Close 语义。
-- UIController 依赖注入、可见性变化、Update 策略和资源释放次数。
+- System 注册后 Component Awake、GameManager Update、Component Dispose 和 World Dispose。
+- 同步加载、异步加载、加载中关闭、迟到结果、加载回调抛异常。
+- 多 Manager、多 Layer、多实例，以及 Get/Has/Close/Pop/CloseAll 语义。
+- UI Entity 直接 Dispose、UIManagerComponent 直接 Dispose、GameManager Dispose 时的 OnClose、资源卸载和出栈次数。
+- `RefreshUILifecycle` 后已打开 UI 使用新 Update/Close 回调，旧 `UILifecycle` 已释放且不会再次分发。

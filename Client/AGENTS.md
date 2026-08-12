@@ -106,8 +106,8 @@ Demo / LYGame  ──────>  LYFramework
 ### UI
 
 - UI 加载是潜在异步流程，必须显式表示 Created/Loading/Open/Closing/Closed 等状态，并处理“加载完成前关闭”和重复关闭。
-- 当前 `UIBase.Load()` 不调用完成回调，`m_IsPrepared` 也从未置为 `true`，因此默认流程不会进入 `OnOpen()` 或 `OnUpdate()`；`SetUIVisible()` 还是空实现。当前 UI 模块属于未完成骨架。
-- 若 UI 实现 `IController`，创建时必须注入 `IGameManager`，不能让 `GetSystem/GetUtility` 在未初始化状态下工作。
+- UIManager 和 UI 实例使用基础 Entity 承载生命周期，分别挂载管理 Component、通用 `UIComponent` 和具体 `UIXxxComponent`，不得用额外 Entity 子类代替 Component 数据扩展。
+- 具体 `UIXxxSystem` 先注册到 GameManager，再由 `UIManagerComponent` Awake 时构建的 `UILifecycle` 按生命周期接口自动发现和分发；不得使用委托式类型定义绕过 System 注册。
 - 资源加载、实例化、层级/深度、可见性、关闭和资源卸载必须形成成对生命周期。
 
 ## 已知工程状态

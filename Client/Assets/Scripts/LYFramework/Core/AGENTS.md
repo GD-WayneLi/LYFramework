@@ -14,6 +14,7 @@
 - 明确服务注册键是“契约类型”还是“实现类型”，注册与查询必须使用同一规则。
 - 重复注册、初始化异常和部分初始化必须有确定结果与回滚，不得只记录日志后留下半初始化对象。
 - 初始化顺序必须确定，销毁默认按初始化逆序执行。
+- `IGameManager.GetSystems()` 只返回按注册顺序生成的只读快照；调用方不得修改 GameManager 的内部注册集合，也不拥有快照中的 System 实例。
 - System、Utility、Controller 的生命周期接口需要保持一致语义；修改其中之一时检查所有实现类。
 - System 可通过 `ISystemAwake<T>`、`ISystemUpdate<T>` 和 `ISystemDispose<T>` 声明其关注的 Component。System 初始化成功后由 `EntityLifecycle` 缓存处理器；Awake 在挂载完成后同步触发，Update 由 `IGameManager.Update()` 委托驱动，Dispose 在 Parent、Domain 和 InstanceId 清理前同步触发。
 - 只有 System 注册后创建的 Component 才接收上述生命周期。Update 中新增的 Component 从下一帧开始执行；回调中销毁的 Component 不得继续执行后续 Update System。
