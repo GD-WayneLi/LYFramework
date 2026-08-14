@@ -1,6 +1,7 @@
 using System;
+using LYFramework;
 
-namespace LYFramework.UI
+namespace LYUnity.UI
 {
     public enum UIState : byte
     {
@@ -30,11 +31,7 @@ namespace LYFramework.UI
         public object UserData { get; internal set; }
 
         public object Resource { get; internal set; }
-
-        public Type DataComponentType => DataComponent?.GetType();
-
-        internal Entity DataComponent { get; set; }
-
+        
         internal int LoadVersion { get; set; }
 
         internal bool WasOpened { get; set; }

@@ -1,8 +1,10 @@
+using System.Threading.Tasks;
+
 namespace LYFramework.Resource
 {
     public interface IResourceUtility : IUtility
     {
-        void Load(string path, System.Action<object> callback);
+        ValueTask<object> Load(string path);
         void Unload(object obj);
     }
 }

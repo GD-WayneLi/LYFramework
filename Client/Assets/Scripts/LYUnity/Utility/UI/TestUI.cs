@@ -1,7 +1,24 @@
-﻿/*namespace LYFramework.UI
+/*using LYFramework;
+using LYUnity.UI;
+
+namespace LYGame.Utility.UI
 {
-    public class TestUI : UIBase
+    public sealed class TestUIComponent : Entity
     {
-        
+    }
+
+    public sealed class TestUISystem : SystemBase, IUIOpen<TestUIComponent>, IUIClose<TestUIComponent>, IUIUpdate<TestUIComponent>
+    {
+        public void Open(TestUIComponent self)
+        {
+        }
+
+        public void Close(TestUIComponent self)
+        {
+        }
+
+        public void Update(TestUIComponent self)
+        {
+        }
     }
 }*/

@@ -1,8 +1,10 @@
 using System;
+using System.Threading.Tasks;
+using LYFramework;
 using LYFramework.Log;
 using LYFramework.Resource;
 
-namespace LYFramework.UI
+namespace LYUnity.UI
 {
     /// <summary>
     /// UIManager 的公共方法契约。
@@ -13,7 +15,7 @@ namespace LYFramework.UI
 
         void RegisterLayerGroup(UIManagerComponent self, ILayerGroup layerGroup);
 
-        void OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new();
+        ValueTask OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new();
 
         void CloseUI<T>(UIManagerComponent self) where T : Entity;
 
@@ -26,10 +28,6 @@ namespace LYFramework.UI
         T GetUI<T>(UIManagerComponent self) where T : Entity;
 
         bool HasUI<T>(UIManagerComponent self) where T : Entity;
-
-        void HandleLoadCompleted(UIManagerComponent self, Entity uiEntity, int loadVersion, object resource, IResourceUtility resourceUtility);
-
-        void HandleUIComponentDisposed(UIManagerComponent self, Entity uiEntity, int layer);
     }
 
     /// <summary>
@@ -46,8 +44,6 @@ namespace LYFramework.UI
             }
 
             var lifecycle = CreateLifecycle(gameManager);
-            self.GameManager = gameManager;
-            self.ResourceUtility = gameManager.GetUtility<IResourceUtility>();
             self.IsClosingAll = false;
             self.Lifecycle = lifecycle;
         }
@@ -60,15 +56,17 @@ namespace LYFramework.UI
             self.Lifecycle = null;
             lifecycle?.Dispose();
             self.LayerGroups.Clear();
-            self.ResourceUtility = null;
-            self.GameManager = null;
         }
 
         public void RefreshUILifecycle(UIManagerComponent self)
         {
-            ThrowIfUnavailable(self);
+            var gameManager = ((IGetGameManager)this).GetGameManager();
+            if (gameManager == null)
+            {
+                throw new InvalidOperationException("UIManagerSystem has not been registered in a GameManager.");
+            }
 
-            var lifecycle = CreateLifecycle(self.GameManager);
+            var lifecycle = CreateLifecycle(gameManager);
             var previousLifecycle = self.Lifecycle;
             self.Lifecycle = lifecycle;
             previousLifecycle.Dispose();
@@ -89,7 +87,7 @@ namespace LYFramework.UI
             }
         }
 
-        public void OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new()
+        public async ValueTask OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new()
         {
             ThrowIfUnavailable(self);
 
@@ -107,35 +105,19 @@ namespace LYFramework.UI
             var uiSystem = GetUISystem(self);
             Entity uiEntity = null;
 
-            try
+            uiEntity = self.Parent.AddChild<Entity>();
+            self.UIStack.Add(uiEntity);
+
+            var uiComponent = uiEntity.AddComponent<UIComponent>();
+            var dataComponent = uiEntity.AddComponent<T>();
+            uiSystem.Configure(uiComponent, path, layer, data, dataComponent);
+            
+            if (IsManagedUI(self, uiEntity))
             {
-                uiEntity = self.Parent.AddChild<Entity>();
-                var uiComponent = uiEntity.AddComponent<UIComponent>();
-                var dataComponent = uiEntity.AddComponent<T>();
-                uiSystem.Configure(uiComponent, path, layer, data, dataComponent);
-
-                self.UIStack.Add(uiEntity);
-
-                if (IsManagedUI(self, uiEntity))
-                {
-                    BeginLoad(self, uiEntity, uiComponent, uiSystem);
-                }
+                await uiSystem.BeginLoading(uiComponent);
             }
-            catch (Exception openException)
-            {
-                self.UIStack.Remove(uiEntity);
-
-                try
-                {
-                    uiEntity?.Dispose();
-                }
-                catch (Exception disposeException)
-                {
-                    throw new AggregateException("UI open and rollback both failed.", openException, disposeException);
-                }
-
-                throw;
-            }
+            
+            LoadCompleted(self, uiEntity);
         }
 
         public void CloseUI<T>(UIManagerComponent self) where T : Entity
@@ -206,25 +188,18 @@ namespace LYFramework.UI
             return GetUI<T>(self) != null;
         }
 
-        public void HandleLoadCompleted(UIManagerComponent self, Entity uiEntity, int loadVersion, object resource, IResourceUtility resourceUtility)
+        void LoadCompleted(UIManagerComponent self, Entity uiEntity)
         {
             if (!IsManagedUI(self, uiEntity))
             {
-                Unload(resourceUtility, resource);
                 return;
             }
 
             var uiComponent = uiEntity.GetComponent<UIComponent>();
-            if (uiComponent == null || uiComponent.State != UIState.Loading || uiComponent.LoadVersion != loadVersion)
-            {
-                Unload(resourceUtility, resource);
-                return;
-            }
 
             var dataComponent = uiComponent.DataComponent;
             if (dataComponent == null || dataComponent.IsDisposed)
             {
-                Unload(resourceUtility, resource);
                 CloseUIInternal(self, uiEntity);
                 return;
             }
@@ -234,8 +209,8 @@ namespace LYFramework.UI
 
             try
             {
-                uiSystem.SetOpen(uiComponent, resource);
-                lifecycle.Loaded(dataComponent, resource);
+                uiSystem.SetOpen(uiComponent);
+                lifecycle.Loaded(dataComponent);
 
                 if (!IsManagedOpenUI(self, uiEntity, uiComponent))
                 {
@@ -244,7 +219,6 @@ namespace LYFramework.UI
 
                 SortUIDepth(self, uiComponent.Layer, uiSystem);
                 SetUIVisible(self, uiSystem);
-                uiSystem.MarkOpened(uiComponent);
                 lifecycle.Open(dataComponent);
             }
             catch
@@ -256,30 +230,6 @@ namespace LYFramework.UI
 
                 throw;
             }
-        }
-
-        public void HandleUIComponentDisposed(UIManagerComponent self, Entity uiEntity, int layer)
-        {
-            if (self == null)
-            {
-                return;
-            }
-
-            self.UIStack.Remove(uiEntity);
-
-            if (self.IsDisposed || self.Parent == null || self.Parent.IsDisposed)
-            {
-                return;
-            }
-
-            var uiSystem = self.GameManager?.GetSystem<IUISystem>();
-            if (uiSystem == null || self.Lifecycle == null)
-            {
-                return;
-            }
-
-            SortUIDepth(self, layer, uiSystem);
-            SetUIVisible(self, uiSystem);
         }
 
         private static UILifecycle CreateLifecycle(IGameManager gameManager)
@@ -325,41 +275,7 @@ namespace LYFramework.UI
                 self.IsClosingAll = false;
             }
         }
-
-        private static void BeginLoad(UIManagerComponent self, Entity uiEntity, UIComponent uiComponent, IUISystem uiSystem)
-        {
-            var resourceUtility = self.ResourceUtility;
-            var loadVersion = uiSystem.BeginLoading(uiComponent);
-
-            if (resourceUtility == null || string.IsNullOrEmpty(uiComponent.Path))
-            {
-                DispatchLoadCompleted(self, uiEntity, loadVersion, null, resourceUtility);
-                return;
-            }
-
-            try
-            {
-                resourceUtility.Load(uiComponent.Path, resource => DispatchLoadCompleted(self, uiEntity, loadVersion, resource, resourceUtility));
-            }
-            catch
-            {
-                CloseUIInternal(self, uiEntity);
-                throw;
-            }
-        }
-
-        private static void DispatchLoadCompleted(UIManagerComponent self, Entity uiEntity, int loadVersion, object resource, IResourceUtility resourceUtility)
-        {
-            var currentSystem = self?.GameManager?.GetSystem<IUIManagerSystem>();
-            if (currentSystem == null)
-            {
-                Unload(resourceUtility, resource);
-                return;
-            }
-
-            currentSystem.HandleLoadCompleted(self, uiEntity, loadVersion, resource, resourceUtility);
-        }
-
+        
         private static void CloseUIInternal(UIManagerComponent self, Entity uiEntity)
         {
             if (!IsOwnedUI(self, uiEntity))
@@ -367,21 +283,11 @@ namespace LYFramework.UI
                 return;
             }
 
-            var uiComponent = uiEntity.GetComponent<UIComponent>();
-            if (uiComponent == null)
-            {
-                self.UIStack.Remove(uiEntity);
-                uiEntity.Dispose();
-                return;
-            }
+            self.UIStack.Remove(uiEntity);
+            self.RemoveChild(uiEntity);
 
-            var uiSystem = GetUISystem(self);
-            if (!uiSystem.BeginClosing(uiComponent))
-            {
-                return;
-            }
-
-            uiEntity.Dispose();
+            SortUIDepth(self);
+            SetUIVisible(self);
         }
 
         private static void SortUIDepth(UIManagerComponent self, int layer, IUISystem uiSystem)
@@ -504,7 +410,7 @@ namespace LYFramework.UI
                 throw new InvalidOperationException("UIManagerComponent is not attached to a valid Entity.");
             }
 
-            if (self.GameManager == null || self.Lifecycle == null)
+            if (self.Lifecycle == null)
             {
                 throw new InvalidOperationException("UIManagerComponent did not receive its Awake lifecycle.");
             }

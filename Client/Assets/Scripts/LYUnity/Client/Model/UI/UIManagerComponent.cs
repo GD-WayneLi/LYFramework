@@ -1,7 +1,8 @@
 using System.Collections.Generic;
+using LYFramework;
 using LYFramework.Resource;
 
-namespace LYFramework.UI
+namespace LYUnity.UI
 {
     /// <summary>
     /// 挂载在 UIManager Entity 上的管理器数据。
@@ -12,11 +13,7 @@ namespace LYFramework.UI
         internal readonly Dictionary<int, ILayerGroup> LayerGroups = new();
 
         internal UILifecycle Lifecycle { get; set; }
-
-        internal IGameManager GameManager { get; set; }
-
-        internal IResourceUtility ResourceUtility { get; set; }
-
+        
         internal bool IsClosingAll { get; set; }
 
         public int Count => UIStack.Count;

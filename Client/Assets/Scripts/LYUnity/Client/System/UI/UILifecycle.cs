@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 
-namespace LYFramework.UI
+namespace LYUnity.UI
 {
     public interface IUILoaded<T> where T : Entity
     {
-        void Loaded(T self, object resource);
+        void Loaded(T self);
     }
 
     public interface IUIOpen<T> where T : Entity
@@ -40,7 +40,7 @@ namespace LYFramework.UI
 
     internal interface IUILoadedInvoker
     {
-        void Invoke(Entity component, object resource);
+        void Invoke(Entity component);
     }
 
     internal interface IUIOpenInvoker
@@ -82,9 +82,9 @@ namespace LYFramework.UI
             m_System = (IUILoaded<T>)system;
         }
 
-        public void Invoke(Entity component, object resource)
+        public void Invoke(Entity component)
         {
-            m_System.Loaded((T)component, resource);
+            m_System.Loaded((T)component);
         }
     }
 
@@ -239,7 +239,7 @@ namespace LYFramework.UI
             m_IsRegistered = true;
         }
 
-        public void Loaded(Entity component, object resource)
+        public void Loaded(Entity component)
         {
             ThrowIfInvalidComponent(component);
 
@@ -250,7 +250,7 @@ namespace LYFramework.UI
 
             for (var i = 0; i < invokers.Count && !component.IsDisposed; i++)
             {
-                invokers[i].Invoke(component, resource);
+                invokers[i].Invoke(component);
             }
         }
 

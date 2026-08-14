@@ -1,6 +1,6 @@
 using System;
 
-namespace LYFramework.UI
+namespace LYUnity.UI
 {
     public interface ILayerGroup
     {
