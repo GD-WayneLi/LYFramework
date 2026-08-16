@@ -2,31 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using LYFramework;
+using LYFramework.Log;
 using LYFramework.Resource;
 using LYUnity.Resource;
+using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace LYUnity.UI
 {
     /// <summary>
-    /// UIComponent 的公共方法契约。
-    /// </summary>
-    public interface IUISystem : ISystem
-    {
-        void Configure(UIComponent self, string path, int layer, object userData, Entity dataComponent);
-
-        ValueTask BeginLoading(UIComponent self);
-        
-        void SetOpen(UIComponent self);
-
-        bool SetDepth(UIComponent self, int depth);
-
-        bool SetVisible(UIComponent self, bool isVisible);
-    }
-
-    /// <summary>
     /// UIComponent 的无状态方法和 Entity 生命周期处理器。
     /// </summary>
-    public class UISystem : SystemBase, IUISystem, ISystemAwake<UIComponent>, ISystemDispose<UIComponent>
+    public class UISystem : SystemBase, ISystemAwake<UIComponent>, ISystemDispose<UIComponent>
     {
         public void Awake(UIComponent self)
         {
@@ -37,24 +24,57 @@ namespace LYUnity.UI
             self.IsVisible = false;
             self.UserData = null;
             self.Resource = null;
-            self.LoadVersion = 1;
-            self.WasOpened = false;
         }
 
-        public void Configure(UIComponent self, string path, int layer, object userData, Entity dataComponent)
+        public void Dispose(UIComponent self)
+        {
+            var uiEntity = self.Parent?.Parent;
+            var manager = uiEntity?.GetComponent<UIManagerComponent>();
+            if (manager == null)
+            {
+                LYLogger.Warning("UIManagerComponent is Null.");
+                return;
+            }
+            
+            List<Exception> exceptions = null;
+            
+            try
+            {
+                manager.OnUIClose(self);
+            }
+            catch (Exception exception)
+            {
+                exceptions = new List<Exception> { exception };
+            }
+
+            Object.Destroy(self.GameObject);
+            
+            var resLoader = self.Parent.GetComponent<ResourceLoaderComponent>();
+            if (self.Resource != null && !resLoader.IsDisposed)
+            {
+                resLoader.Unload(self.Resource);
+            }
+            
+            self.Resource = null;
+            self.UserData = null;
+            self.IsVisible = false;
+            self.State = UIState.Disposed;
+
+            if (exceptions != null)
+            {
+                throw new AggregateException(
+                    "UIComponent dispose lifecycle failed.",
+                    exceptions);
+            }
+        }
+    }
+
+    public static class UIComponentExtensions
+    {
+        public static void Configure(this UIComponent self, string path, int layer, object userData)
         {
             ThrowIfInvalid(self);
-
-            if (dataComponent == null)
-            {
-                throw new ArgumentNullException(nameof(dataComponent));
-            }
-
-            if (dataComponent.IsDisposed || !dataComponent.IsComponent || !ReferenceEquals(dataComponent.Parent, self.Parent))
-            {
-                throw new InvalidOperationException("The concrete UI Component must be attached to the same UI Entity as UIComponent.");
-            }
-
+            
             if (self.State != UIState.Created)
             {
                 throw new InvalidOperationException(
@@ -67,7 +87,7 @@ namespace LYUnity.UI
             self.UserData = userData;
         }
 
-        public async ValueTask BeginLoading(UIComponent self)
+        public static async ValueTask BeginLoading(this UIComponent self)
         {
             ThrowIfInvalid(self);
 
@@ -78,18 +98,21 @@ namespace LYUnity.UI
             }
 
             self.State = UIState.Loading;
+
             var resLoader = self.Parent.GetComponent<ResourceLoaderComponent>();
-            
-            var manager = self.GetUIManagerComponent();
 
-            self.Resource = await manager.ResourceUtility.Load(self.Path);
-            if (self.IsDisposed)
+            self.Resource = await resLoader.Load(self.Path);
+
+            if (self.IsDisposed && !resLoader.IsDisposed)
             {
-                manager.ResourceUtility.Unload(self.Resource);
+                resLoader.Unload(self.Resource);
+                return;
             }
-        }
 
-        public void SetOpen(UIComponent self)
+            self.GameObject = Object.Instantiate(self.Resource as GameObject);
+        }
+        
+        public static void SetOpen(this UIComponent self)
         {
             ThrowIfInvalid(self);
 
@@ -102,79 +125,31 @@ namespace LYUnity.UI
             self.State = UIState.Open;
         }
 
-        public bool SetDepth(UIComponent self, int depth)
+        public static void SetDepth(this UIComponent self, int depth)
         {
             ThrowIfInvalid(self);
 
             if (self.Depth == depth)
             {
-                return false;
+                return;
             }
 
             self.Depth = depth;
-            return true;
+            // todo : 处理层级
         }
 
-        public bool SetVisible(UIComponent self, bool isVisible)
+        public static void SetVisible(this UIComponent self, bool isVisible)
         {
             ThrowIfInvalid(self);
 
             if (self.IsVisible == isVisible)
             {
-                return false;
+                return;
             }
 
             self.IsVisible = isVisible;
-            return true;
-        }
-        
-        public void Dispose(UIComponent self)
-        {
-            var uiEntity = self.Parent;
-            var manager = self.GetUIManagerComponent();
-            List<Exception> exceptions = null;
-
-            self.LoadVersion++;
-            self.State = UIState.Closing;
-            manager?.UIStack.Remove(uiEntity);
-
-            try
-            {
-                if (self.WasOpened && manager?.Lifecycle != null && self.DataComponent != null)
-                {
-                    manager.Lifecycle.Close(self.DataComponent);
-                }
-            }
-            catch (Exception exception)
-            {
-                exceptions = new List<Exception> { exception };
-            }
-
-            try
-            {
-                if (self.Resource != null)
-                {
-                    manager?.ResourceUtility?.Unload(self.Resource);
-                }
-            }
-            catch (Exception exception)
-            {
-                (exceptions ??= new List<Exception>()).Add(exception);
-            }
-            finally
-            {
-                self.Resource = null;
-                self.UserData = null;
-                self.IsVisible = false;
-                self.State = UIState.Disposed;
-            }
-
-            if (exceptions != null)
-            {
-                throw new AggregateException(
-                    "UIComponent dispose lifecycle failed.",
-                    exceptions);
-            }
+            
+            // todo：处理显示
         }
 
         private static void ThrowIfInvalid(UIComponent self)
@@ -194,30 +169,6 @@ namespace LYUnity.UI
                 throw new InvalidOperationException(
                     "UIComponent is not attached to a valid Entity.");
             }
-        }
-    }
-
-    public static class UIEntityExtensions
-    {
-        public static Entity GetUIEntity(this Entity self)
-        {
-            if (self == null)
-            {
-                throw new ArgumentNullException(nameof(self));
-            }
-
-            return self.IsComponent ? self.Parent : self;
-        }
-
-        public static UIComponent GetUIComponent(this Entity self)
-        {
-            return self.GetUIEntity()?.GetComponent<UIComponent>();
-        }
-
-        public static UIManagerComponent GetUIManagerComponent(this Entity self)
-        {
-            var uiEntity = self.GetUIEntity();
-            return uiEntity?.Parent?.GetComponent<UIManagerComponent>();
         }
     }
 }

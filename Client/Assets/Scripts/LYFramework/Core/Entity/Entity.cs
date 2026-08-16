@@ -353,7 +353,7 @@ namespace LYFramework
 				}
 				catch (Exception exception)
 				{
-					exceptions = new List<Exception> { exception };
+					(exceptions ??= new List<Exception>()).Add(exception);
 				}
 			}
 

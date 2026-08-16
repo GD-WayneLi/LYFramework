@@ -2,56 +2,21 @@ using System;
 using System.Threading.Tasks;
 using LYFramework;
 using LYFramework.Log;
-using LYFramework.Resource;
 
 namespace LYUnity.UI
 {
     /// <summary>
-    /// UIManager 的公共方法契约。
-    /// </summary>
-    public interface IUIManagerSystem : ISystem
-    {
-        void RefreshUILifecycle(UIManagerComponent self);
-
-        void RegisterLayerGroup(UIManagerComponent self, ILayerGroup layerGroup);
-
-        ValueTask OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new();
-
-        void CloseUI<T>(UIManagerComponent self) where T : Entity;
-
-        void CloseUI(UIManagerComponent self, Entity entityOrComponent);
-
-        void PopUI(UIManagerComponent self);
-
-        void CloseUIAll(UIManagerComponent self);
-
-        T GetUI<T>(UIManagerComponent self) where T : Entity;
-
-        bool HasUI<T>(UIManagerComponent self) where T : Entity;
-    }
-
-    /// <summary>
     /// UIManagerComponent 的无状态方法和 Entity 生命周期处理器。
     /// </summary>
-    public class UIManagerSystem : SystemBase, IUIManagerSystem, ISystemAwake<UIManagerComponent>, ISystemDispose<UIManagerComponent>
+    public class UIManagerSystem : SystemBase, ISystemAwake<UIManagerComponent>, ISystemDispose<UIManagerComponent>
     {
         public void Awake(UIManagerComponent self)
         {
-            var gameManager = ((IGetGameManager)this).GetGameManager();
-            if (gameManager == null)
-            {
-                throw new InvalidOperationException("UIManagerSystem has not been registered in a GameManager.");
-            }
-
-            var lifecycle = CreateLifecycle(gameManager);
-            self.IsClosingAll = false;
-            self.Lifecycle = lifecycle;
+            RefreshUILifecycle(self);
         }
 
         public void Dispose(UIManagerComponent self)
         {
-            CloseUIAllInternal(self);
-
             var lifecycle = self.Lifecycle;
             self.Lifecycle = null;
             lifecycle?.Dispose();
@@ -69,167 +34,8 @@ namespace LYUnity.UI
             var lifecycle = CreateLifecycle(gameManager);
             var previousLifecycle = self.Lifecycle;
             self.Lifecycle = lifecycle;
-            previousLifecycle.Dispose();
-        }
 
-        public void RegisterLayerGroup(UIManagerComponent self, ILayerGroup layerGroup)
-        {
-            ThrowIfUnavailable(self);
-
-            if (layerGroup == null)
-            {
-                throw new ArgumentNullException(nameof(layerGroup));
-            }
-
-            if (!self.LayerGroups.TryAdd(layerGroup.Layer, layerGroup))
-            {
-                throw new InvalidOperationException($"UI layer is already registered: {layerGroup.Layer}");
-            }
-        }
-
-        public async ValueTask OpenUI<T>(UIManagerComponent self, string path, int layer, object data = null) where T : Entity, new()
-        {
-            ThrowIfUnavailable(self);
-
-            if (self.IsClosingAll)
-            {
-                throw new InvalidOperationException("A UI cannot be opened while CloseUIAll is running.");
-            }
-
-            var dataComponentType = typeof(T);
-            if (dataComponentType == typeof(Entity) || dataComponentType == typeof(UIComponent) || dataComponentType == typeof(UIManagerComponent))
-            {
-                throw new InvalidOperationException($"Invalid concrete UI component type: {dataComponentType.FullName}");
-            }
-
-            var uiSystem = GetUISystem(self);
-            Entity uiEntity = null;
-
-            uiEntity = self.Parent.AddChild<Entity>();
-            self.UIStack.Add(uiEntity);
-
-            var uiComponent = uiEntity.AddComponent<UIComponent>();
-            var dataComponent = uiEntity.AddComponent<T>();
-            uiSystem.Configure(uiComponent, path, layer, data, dataComponent);
-            
-            if (IsManagedUI(self, uiEntity))
-            {
-                await uiSystem.BeginLoading(uiComponent);
-            }
-            
-            LoadCompleted(self, uiEntity);
-        }
-
-        public void CloseUI<T>(UIManagerComponent self) where T : Entity
-        {
-            ThrowIfUnavailable(self);
-
-            for (var i = 0; i < self.UIStack.Count; i++)
-            {
-                var uiEntity = self.UIStack[i];
-                if (uiEntity.GetComponent<T>() != null)
-                {
-                    CloseUIInternal(self, uiEntity);
-                    return;
-                }
-            }
-        }
-
-        public void CloseUI(UIManagerComponent self, Entity entityOrComponent)
-        {
-            ThrowIfUnavailable(self);
-
-            if (entityOrComponent == null)
-            {
-                return;
-            }
-
-            CloseUIInternal(self, entityOrComponent.GetUIEntity());
-        }
-
-        public void PopUI(UIManagerComponent self)
-        {
-            ThrowIfUnavailable(self);
-
-            var count = self.UIStack.Count;
-            if (count <= 0)
-            {
-                LYLogger.Warning("UIStack is empty, but PopUI was called.");
-                return;
-            }
-
-            CloseUIInternal(self, self.UIStack[count - 1]);
-        }
-
-        public void CloseUIAll(UIManagerComponent self)
-        {
-            ThrowIfUnavailable(self);
-            CloseUIAllInternal(self);
-        }
-
-        public T GetUI<T>(UIManagerComponent self) where T : Entity
-        {
-            ThrowIfUnavailable(self);
-
-            foreach (var uiEntity in self.UIStack)
-            {
-                var component = uiEntity.GetComponent<T>();
-                if (component != null)
-                {
-                    return component;
-                }
-            }
-
-            return null;
-        }
-
-        public bool HasUI<T>(UIManagerComponent self) where T : Entity
-        {
-            return GetUI<T>(self) != null;
-        }
-
-        void LoadCompleted(UIManagerComponent self, Entity uiEntity)
-        {
-            if (!IsManagedUI(self, uiEntity))
-            {
-                return;
-            }
-
-            var uiComponent = uiEntity.GetComponent<UIComponent>();
-
-            var dataComponent = uiComponent.DataComponent;
-            if (dataComponent == null || dataComponent.IsDisposed)
-            {
-                CloseUIInternal(self, uiEntity);
-                return;
-            }
-
-            var uiSystem = GetUISystem(self);
-            var lifecycle = self.Lifecycle;
-
-            try
-            {
-                uiSystem.SetOpen(uiComponent);
-                lifecycle.Loaded(dataComponent);
-
-                if (!IsManagedOpenUI(self, uiEntity, uiComponent))
-                {
-                    return;
-                }
-
-                SortUIDepth(self, uiComponent.Layer, uiSystem);
-                SetUIVisible(self, uiSystem);
-                lifecycle.Open(dataComponent);
-            }
-            catch
-            {
-                if (IsManagedUI(self, uiEntity))
-                {
-                    CloseUIInternal(self, uiEntity);
-                }
-
-                throw;
-            }
+            previousLifecycle?.Dispose();
         }
 
         private static UILifecycle CreateLifecycle(IGameManager gameManager)
@@ -246,51 +52,166 @@ namespace LYUnity.UI
                 throw;
             }
         }
+    }
 
-        private static void CloseUIAllInternal(UIManagerComponent self)
+    public static class UIManagerExtensions
+    {
+        public static void RegisterLayerGroup(this UIManagerComponent self, ILayerGroup layerGroup)
         {
-            if (self == null || self.IsClosingAll)
+            ThrowIfUnavailable(self);
+
+            if (layerGroup == null)
+            {
+                throw new ArgumentNullException(nameof(layerGroup));
+            }
+
+            if (!self.LayerGroups.TryAdd(layerGroup.Layer, layerGroup))
+            {
+                throw new InvalidOperationException($"UI layer is already registered: {layerGroup.Layer}");
+            }
+        }
+
+        public static async ValueTask OpenUI<T>(this UIManagerComponent self, string path, int layer, object data = null) where T : Entity, IUILogicComponent, new()
+        {
+            ThrowIfUnavailable(self);
+
+            Entity uiEntity = self.Parent.AddChild<Entity>();
+            self.UIStack.Add(uiEntity);
+
+            var uiComponent = uiEntity.AddComponent<UIComponent>();
+            uiComponent.Configure(path, layer, data);
+
+            var uiLogicComponent = uiEntity.AddComponent<T>();
+
+            await uiComponent.BeginLoading();
+
+            if (uiComponent.IsDisposed)
+            {
+                return;
+            }
+            
+            var lifecycle = self.Lifecycle;
+
+            lifecycle.Loaded(uiLogicComponent);
+            
+            self.SortUIDepth(uiComponent.Layer);
+            self.SetUIVisible();
+
+            uiComponent.SetOpen();
+            lifecycle.Open(uiLogicComponent);
+        }
+
+        public static void CloseUI<T>(this UIManagerComponent self) where T : Entity, IUILogicComponent
+        {
+            ThrowIfUnavailable(self);
+
+            for (var i = self.UIStack.Count - 1; i >= 0; i--)
+            {
+                var uiEntity = self.UIStack[i];
+                if (uiEntity.GetComponent<T>() != null)
+                {
+                    self.CloseUIInternal(uiEntity);
+                    return;
+                }
+            }
+        }
+
+        public static void CloseUI(this UIManagerComponent self, IUILogicComponent component)
+        {
+            ThrowIfUnavailable(self);
+
+            if (component == null)
             {
                 return;
             }
 
-            self.IsClosingAll = true;
-            try
+            if (component is Entity entity)
             {
-                var uiEntities = self.UIStack.ToArray();
-                foreach (var uiEntity in uiEntities)
-                {
-                    try
-                    {
-                        CloseUIInternal(self, uiEntity);
-                    }
-                    catch (Exception exception)
-                    {
-                        LYLogger.Error(exception.ToString());
-                    }
-                }
-            }
-            finally
-            {
-                self.IsClosingAll = false;
+                self.CloseUIInternal(entity.Parent);
             }
         }
+
+        public static void PopUI(this UIManagerComponent self)
+        {
+            ThrowIfUnavailable(self);
+
+            var count = self.UIStack.Count;
+            if (count <= 0)
+            {
+                LYLogger.Warning("UIStack is empty, but PopUI was called.");
+                return;
+            }
+
+            self.CloseUIInternal(self.UIStack[count - 1]);
+        }
+
+        public static void CloseUIAll(this UIManagerComponent self)
+        {
+            ThrowIfUnavailable(self);
+            
+            if (self == null)
+            {
+                return;
+            }
+
+            var uiEntities = self.UIStack.ToArray();
+            foreach (var uiEntity in uiEntities)
+            {
+                try
+                {
+                    CloseUIInternal(self, uiEntity);
+                }
+                catch (Exception exception)
+                {
+                    LYLogger.Error(exception.ToString());
+                }
+            }
+        }
+
+        public static T GetUI<T>(this UIManagerComponent self) where T : Entity, IUILogicComponent
+        {
+            ThrowIfUnavailable(self);
+
+            foreach (var uiEntity in self.UIStack)
+            {
+                var component = uiEntity.GetComponent<T>();
+                if (component != null)
+                {
+                    return component;
+                }
+            }
+
+            return null;
+        }
+
+        public static bool HasUI<T>(this UIManagerComponent self) where T : Entity, IUILogicComponent
+        {
+            return GetUI<T>(self) != null;
+        }
+
+        static void LoadCompleted<T>(this UIManagerComponent self, Entity uiEntity) where T : Entity, IUILogicComponent
+        {
+        }
+
+        internal static void OnUIClose(this UIManagerComponent self, UIComponent uiComponent)
+        {
+            self.UIStack.Remove(uiComponent.Parent);
+
+            self.SortUIDepth(uiComponent.Layer);
+            self.SetUIVisible();
+        }
         
-        private static void CloseUIInternal(UIManagerComponent self, Entity uiEntity)
+        private static void CloseUIInternal(this UIManagerComponent self, Entity uiEntity)
         {
             if (!IsOwnedUI(self, uiEntity))
             {
                 return;
             }
 
-            self.UIStack.Remove(uiEntity);
             self.RemoveChild(uiEntity);
-
-            SortUIDepth(self);
-            SetUIVisible(self);
         }
 
-        private static void SortUIDepth(UIManagerComponent self, int layer, IUISystem uiSystem)
+        private static void SortUIDepth(this UIManagerComponent self, int layer)
         {
             var startDepth = layer;
             if (self.LayerGroups.TryGetValue(layer, out var layerGroup))
@@ -301,99 +222,49 @@ namespace LYUnity.UI
             var uiEntities = self.UIStack.ToArray();
             foreach (var uiEntity in uiEntities)
             {
-                if (!IsManagedUI(self, uiEntity))
-                {
-                    continue;
-                }
-
                 var uiComponent = uiEntity.GetComponent<UIComponent>();
                 if (uiComponent == null || uiComponent.Layer != layer)
                 {
                     continue;
                 }
 
-                if (uiSystem.SetDepth(uiComponent, startDepth))
-                {
-                    var dataComponent = uiComponent.DataComponent;
-                    if (dataComponent != null && !dataComponent.IsDisposed)
-                    {
-                        self.Lifecycle.DepthChanged(dataComponent, startDepth);
-                    }
-                }
+                uiComponent.SetDepth(startDepth);
 
                 startDepth += 100;
             }
         }
 
-        private static void SetUIVisible(UIManagerComponent self, IUISystem uiSystem)
+        private static void SetUIVisible(this UIManagerComponent self)
         {
             var hideLowerUI = false;
-            var uiEntities = self.UIStack.ToArray();
+            var uiEntities = self.UIStack;
 
-            for (var i = uiEntities.Length - 1; i >= 0; i--)
+            for (var i = uiEntities.Count - 1; i >= 0; i--)
             {
                 var uiEntity = uiEntities[i];
-                if (!IsManagedUI(self, uiEntity))
-                {
-                    continue;
-                }
 
                 var uiComponent = uiEntity.GetComponent<UIComponent>();
-                var dataComponent = uiComponent?.DataComponent;
-                if (uiComponent == null || uiComponent.State != UIState.Open || dataComponent == null || dataComponent.IsDisposed)
+                if (uiComponent == null || uiComponent.State != UIState.Open)
                 {
                     continue;
                 }
 
                 var isVisible = !hideLowerUI;
-                var hidesLowerUI = self.Lifecycle.GetHideLowerUI(dataComponent.GetType());
-                if (uiSystem.SetVisible(uiComponent, isVisible))
-                {
-                    self.Lifecycle.VisibilityChanged(dataComponent, isVisible);
-                }
+                uiComponent.SetVisible(isVisible);
 
-                if (isVisible && hidesLowerUI && IsManagedOpenUI(self, uiEntity, uiComponent))
+                if (isVisible)
                 {
                     hideLowerUI = true;
                 }
             }
         }
-
-        private static IUISystem GetUISystem(UIManagerComponent self)
-        {
-            var uiSystem = self.GameManager?.GetSystem<IUISystem>();
-            if (uiSystem == null)
-            {
-                throw new InvalidOperationException("IUISystem must be registered before opening a UI.");
-            }
-
-            return uiSystem;
-        }
-
-        private static bool IsManagedUI(UIManagerComponent self, Entity uiEntity)
-        {
-            return self != null && !self.IsDisposed && IsOwnedUI(self, uiEntity);
-        }
-
-        private static bool IsOwnedUI(UIManagerComponent self, Entity uiEntity)
+        
+        private static bool IsOwnedUI(this UIManagerComponent self, Entity uiEntity)
         {
             return self != null && uiEntity != null && !uiEntity.IsDisposed && self.UIStack.Contains(uiEntity);
         }
 
-        private static bool IsManagedOpenUI(UIManagerComponent self, Entity uiEntity, UIComponent uiComponent)
-        {
-            return IsManagedUI(self, uiEntity) && uiComponent.State == UIState.Open;
-        }
-
-        private static void Unload(IResourceUtility resourceUtility, object resource)
-        {
-            if (resourceUtility != null && resource != null)
-            {
-                resourceUtility.Unload(resource);
-            }
-        }
-
-        private static void ThrowIfUnavailable(UIManagerComponent self)
+        private static void ThrowIfUnavailable(this UIManagerComponent self)
         {
             if (self == null)
             {

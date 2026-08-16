@@ -5,29 +5,6 @@ namespace LYFramework.Resource
 {
     public class ResourceLoaderSystem : SystemBase, ISystemAwake<ResourceLoaderComponent>, ISystemUpdate<ResourceLoaderComponent>, ISystemDispose<ResourceLoaderComponent>
     {
-        public async ValueTask<object> Load(ResourceLoaderComponent component, string path)
-        {
-            if (component.AssetCache.TryGetValue(path, out var asset))
-            {
-                return asset;
-            }
-            
-            asset = await component.ResourceUtility.Load(path);
-            component.AssetCache.Add(path, asset);
-            
-            return asset;
-        }
-
-        public void UnLoad(ResourceLoaderComponent component, object asset)
-        {
-            
-        }
-        
-        public void Update(ResourceLoaderComponent component)
-        {
-            
-        }
-
         public void Awake(ResourceLoaderComponent component)
         {
             component.ResourceUtility = this.GetUtility<IResourceUtility>();
@@ -47,6 +24,32 @@ namespace LYFramework.Resource
             
             component.AssetCache.Clear();
             component.AssetCache = null;
+        }
+        
+        public void Update(ResourceLoaderComponent component)
+        {
+            
+        }
+    }
+
+    public static class ResourceLoadExtensions
+    {
+        public static async ValueTask<object> Load(this ResourceLoaderComponent component, string path)
+        {
+            if (component.AssetCache.TryGetValue(path, out var asset))
+            {
+                return asset;
+            }
+            
+            asset = await component.ResourceUtility.Load(path);
+            component.AssetCache.Add(path, asset);
+            
+            return asset;
+        }
+
+        public static void Unload(this ResourceLoaderComponent component, object asset)
+        {
+            
         }
     }
 }

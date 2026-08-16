@@ -14,8 +14,6 @@ namespace LYUnity.UI
 
         internal UILifecycle Lifecycle { get; set; }
         
-        internal bool IsClosingAll { get; set; }
-
         public int Count => UIStack.Count;
 
         public IReadOnlyList<Entity> OpenedUIEntities => UIStack;

@@ -1,5 +1,6 @@
 using System;
 using LYFramework;
+using UnityEngine;
 
 namespace LYUnity.UI
 {
@@ -8,9 +9,7 @@ namespace LYUnity.UI
         Created = 0,
         Loading = 1,
         Open = 2,
-        Closing = 3,
-        Closed = 4,
-        Disposed = 5,
+        Disposed = 3
     }
 
     /// <summary>
@@ -32,8 +31,6 @@ namespace LYUnity.UI
 
         public object Resource { get; internal set; }
         
-        internal int LoadVersion { get; set; }
-
-        internal bool WasOpened { get; set; }
+        public GameObject GameObject { get; internal set; }
     }
 }
