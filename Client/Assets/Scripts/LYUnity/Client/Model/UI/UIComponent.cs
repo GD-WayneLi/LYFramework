@@ -17,6 +17,8 @@ namespace LYUnity.UI
     /// </summary>
     public sealed class UIComponent : Entity
     {
+        internal UILifecycle Lifecycle { get; set; }
+        
         public UIState State { get; internal set; }
 
         public string Path { get; internal set; }
@@ -27,6 +29,8 @@ namespace LYUnity.UI
 
         public bool IsVisible { get; internal set; }
 
+        public Entity LogicComponent { get; internal set; }
+        
         public object UserData { get; internal set; }
 
         public object Resource { get; internal set; }

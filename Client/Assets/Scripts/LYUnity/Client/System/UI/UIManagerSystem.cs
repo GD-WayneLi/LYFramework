@@ -79,9 +79,10 @@ namespace LYUnity.UI
             self.UIStack.Add(uiEntity);
 
             var uiComponent = uiEntity.AddComponent<UIComponent>();
-            uiComponent.Configure(path, layer, data);
-
             var uiLogicComponent = uiEntity.AddComponent<T>();
+            
+            uiComponent.Configure(path, layer, data, uiLogicComponent);
+
 
             await uiComponent.BeginLoading();
 
@@ -172,8 +173,9 @@ namespace LYUnity.UI
         {
             ThrowIfUnavailable(self);
 
-            foreach (var uiEntity in self.UIStack)
+            for (var i = self.UIStack.Count - 1; i >= 0; i--)
             {
+                var uiEntity = self.UIStack[i];
                 var component = uiEntity.GetComponent<T>();
                 if (component != null)
                 {
@@ -187,10 +189,6 @@ namespace LYUnity.UI
         public static bool HasUI<T>(this UIManagerComponent self) where T : Entity, IUILogicComponent
         {
             return GetUI<T>(self) != null;
-        }
-
-        static void LoadCompleted<T>(this UIManagerComponent self, Entity uiEntity) where T : Entity, IUILogicComponent
-        {
         }
 
         internal static void OnUIClose(this UIManagerComponent self, UIComponent uiComponent)

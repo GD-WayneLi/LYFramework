@@ -13,7 +13,7 @@ namespace LYUnity.UI
     /// <summary>
     /// UIComponent 的无状态方法和 Entity 生命周期处理器。
     /// </summary>
-    public class UISystem : SystemBase, ISystemAwake<UIComponent>, ISystemDispose<UIComponent>
+    public class UISystem : SystemBase, ISystemAwake<UIComponent>, ISystemDispose<UIComponent>, ISystemUpdate<UIComponent>
     {
         public void Awake(UIComponent self)
         {
@@ -24,6 +24,10 @@ namespace LYUnity.UI
             self.IsVisible = false;
             self.UserData = null;
             self.Resource = null;
+            self.LogicComponent = null;
+            self.GameObject = null;
+            
+            self.Lifecycle = self.Parent?.Parent?.GetComponent<UIManagerComponent>()?.Lifecycle;
         }
 
         public void Dispose(UIComponent self)
@@ -40,6 +44,7 @@ namespace LYUnity.UI
             
             try
             {
+                self.Lifecycle.Close(self.LogicComponent);
                 manager.OnUIClose(self);
             }
             catch (Exception exception)
@@ -55,6 +60,8 @@ namespace LYUnity.UI
                 resLoader.Unload(self.Resource);
             }
             
+            self.LogicComponent = null;
+            self.GameObject = null;
             self.Resource = null;
             self.UserData = null;
             self.IsVisible = false;
@@ -67,11 +74,19 @@ namespace LYUnity.UI
                     exceptions);
             }
         }
+
+        public void Update(UIComponent component)
+        {
+            if (component.IsVisible)
+            {
+                component.Lifecycle.Update(component.LogicComponent);
+            }
+        }
     }
 
     public static class UIComponentExtensions
     {
-        public static void Configure(this UIComponent self, string path, int layer, object userData)
+        public static void Configure(this UIComponent self, string path, int layer, object userData, Entity uiLogicComponent)
         {
             ThrowIfInvalid(self);
             
@@ -85,6 +100,7 @@ namespace LYUnity.UI
             self.Layer = layer;
             self.Depth = layer;
             self.UserData = userData;
+            self.LogicComponent = uiLogicComponent;
         }
 
         public static async ValueTask BeginLoading(this UIComponent self)
