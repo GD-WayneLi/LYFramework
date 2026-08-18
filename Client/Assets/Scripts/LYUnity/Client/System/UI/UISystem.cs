@@ -119,6 +119,11 @@ namespace LYUnity.UI
 
             self.Resource = await resLoader.Load(self.Path);
 
+            if (self.Resource == null)
+            {
+                return;
+            }
+
             if (self.IsDisposed && !resLoader.IsDisposed)
             {
                 resLoader.Unload(self.Resource);
