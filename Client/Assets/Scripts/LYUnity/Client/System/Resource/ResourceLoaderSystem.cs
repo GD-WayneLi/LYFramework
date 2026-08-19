@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using System;
+using LYFramework.TaskEx;
 using LYUnity.Resource;
 
 namespace LYFramework.Resource
@@ -87,7 +88,12 @@ namespace LYFramework.Resource
             }
         }
 
-        public static async Task Unload(this ResourceLoaderComponent component, object asset)
+        public static void Unload(this ResourceLoaderComponent component, object asset)
+        {
+            component.UnloadInternal(asset).Forget();
+        }
+        
+        static async Task UnloadInternal(this ResourceLoaderComponent component, object asset)
         {
             await Task.Delay(5000);
             component.ResourceUtility.Unload(asset);
