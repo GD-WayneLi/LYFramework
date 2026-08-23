@@ -1,5 +1,3 @@
-using System;
-
 namespace LYUnity.UI
 {
     public interface ILayerGroup

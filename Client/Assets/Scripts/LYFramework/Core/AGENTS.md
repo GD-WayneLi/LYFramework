@@ -1,7 +1,5 @@
 # Core 模块规范
 
-本文件继承 `Assets/Scripts/LYFramework/AGENTS.md`，适用于 `Core/` 及其 Controller、Entity、Interface、System、Utility 子目录。
-
 ## 模块职责
 
 - Core 只负责对象生命周期、服务注册/查询、System/Controller 基础契约，以及 World、EntityDomain、Entity 的所有权和层级关系。
@@ -53,28 +51,3 @@
 - `IsDisposed`、`IsComponent`、Parent、Domain、Id 和 InstanceId 等维持不变量的状态只能由框架内部修改。
 - 遍历 Child 或 Component 时，若递归 Dispose 或回调会修改原集合，必须先快照或使用安全的逐项移除流程。
 - Dispose 必须幂等。销毁完成后需要清除 Parent、Domain、Component 标记和 InstanceId，并从 World 索引注销；部分销毁抛异常时不能让对象永久停留在半销毁状态。
-
-## 标识与创建流程
-
-- `Id` 表示 Entity 的稳定标识；`InstanceId` 表示当前生命周期实例，用于 World 快速查询和异步有效性检查。
-- 存活实例的 InstanceId 必须非 0 且在 World 内唯一；0 只表示尚未完成生命周期初始化或已经销毁。
-- Entity 创建必须通过受控流程完成：创建实例、分配标识、绑定 World、注册索引，然后根据用途挂接为 Child/Component 或保持游离。
-- 若新增统一工厂或 `World.CreateEntity<T>()`，它应成为业务 Entity 的首选入口；不要让 Entity、EntityDomain 和业务代码分别维护独立的编号生成器或注册逻辑。
-- 创建或挂接失败时，必须回滚已经生成的父子关系、组件标记、Domain 引用和 World 索引，不能遗留只有 Parent 引用但未进入集合的对象。
-
-## 当前实现状态
-
-- `GameManagerBase<T>` 已持有唯一 World，World 已持有唯一根 EntityDomain。
-- `World` 已有基于 `InstanceId` 的 `Add/Remove/Get` 索引骨架，但根 EntityDomain 和新建 Entity 尚未自动注册，Entity 也尚未记录所属 World。
-- 当前 Entity 创建流程尚未正确分配 `Id/InstanceId`，Child/Component 挂接与 World 注册尚未联动。
-- 当前 World Dispose 只调用根 EntityDomain Dispose，尚未独立处理索引中仍存活的游离 Entity，也未清空索引。
-- Entity 树的环检测、关系修改原子性、遍历期间修改安全和销毁后的完整状态清理仍需闭环；不得把当前骨架视为生产可用实现。
-- 当前 Utility 没有统一 Init/Dispose 契约。修复应作为完整生命周期设计处理，不做局部补丁。
-
-## 最低验证
-
-- 服务注册、重复注册、缺失查询、初始化失败回滚、销毁顺序和重复 Dispose。
-- World 根 EntityDomain 注册、Entity Add/Get/Remove、InstanceId 唯一性、重复注册、无效注销和 World Dispose 后查询。
-- Entity AddChild/RemoveChild、AddComponent/RemoveComponent、关系互斥、环检测和操作失败回滚。
-- Domain 归属递归传播、游离 Entity 保持 World 注册、跨 World 挂接拒绝，以及迁移过程的索引一致性。
-- 父节点销毁、子节点主动销毁、Component 销毁、游离对象销毁、递归/重复 Dispose 和遍历期间修改安全。

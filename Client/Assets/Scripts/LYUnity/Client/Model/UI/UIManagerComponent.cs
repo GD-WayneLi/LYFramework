@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using LYFramework;
-using LYFramework.Resource;
 
 namespace LYUnity.UI
 {

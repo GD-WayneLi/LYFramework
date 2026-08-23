@@ -6,7 +6,7 @@
 
 - 可以依赖 Core 的 Utility 契约、Log 和 ReferencePool。
 - 不得依赖 UI、Demo、具体游戏 Packet、场景对象或 Unity 组件。
-- Packet 序列化和分发的具体项目实现优先放在 `LYGame`。
+- Packet 序列化和分发的具体项目实现优先放在 `LYUnity`。
 
 ## 连接状态与线程
 
@@ -33,15 +33,3 @@
 - 不使用 `lock(this)`；使用私有同步对象或无锁状态设计。
 - 不在内部锁中调用用户委托、日志适配器或 PacketHandler。
 - Connection/Error/Closed 回调的线程、顺序和重复触发规则必须固定。
-
-## 已知状态
-
-- 当前 `NetworkChannelBase.Connect()` 没有创建或连接 Socket，`TcpNetworkChannel` 也未实现连接，首次接收未启动。
-- 当前异常路径可能留下非空发送流或未重置接收状态，包长也没有上限。
-- NetworkUtility 没有纳入统一 Utility 销毁流程，NetworkManager 也没有整体 Dispose。
-
-## 最低验证
-
-- 使用本机 loopback 服务覆盖连接、发送、接收、分包/粘包、部分发送和远端关闭。
-- 覆盖重复连接、连接中关闭、快速重连、旧回调、序列化/反序列化异常和超长包。
-- 对每条路径断言 Packet Release 次数、回调线程、回调顺序和资源最终释放。

@@ -1,7 +1,5 @@
 # UI 模块规范
 
-本文件继承 `Assets/Scripts/LYFramework/AGENTS.md`，适用于 UI 数据组件、System、层级和资源生命周期。
-
 ## 数据与 Entity 关系
 
 - UIManager 和每个 UI 实例都使用基础 `Entity` 作为生命周期主体，不新增仅用于标识的 Entity 子类。
@@ -38,15 +36,7 @@
 
 ## 资源与线程
 
-- UI 可以依赖 Core、Log 和 Resource 抽象，不得依赖 LYUnity 的具体 Prefab、Canvas 或业务 UI。
-- Unity GameObject、Canvas、Addressables 等适配实现放在 LYUnity 或独立 Unity 适配程序集。
+- UI 通用 System 可以依赖 Core、Log 和 Resource 抽象；Prefab、Canvas 和业务 UI 绑定应通过 Component 字段或适配器进入，不在通用生命周期里硬编码。
+- Unity GameObject、Canvas、Addressables、YooAsset 等适配实现保留在 LYUnity 或独立 Unity 适配程序集。
 - 资源加载完成回调必须回到 Unity 主线程。UI Entity 销毁后的迟到结果由发起加载时捕获的 ResourceUtility 卸载。
 - 资源获取和释放必须严格成对；OnClose、Unload 或出栈回调抛异常时仍须继续完成其余清理。
-
-## 最低验证
-
-- System 注册后 Component Awake、GameManager Update、Component Dispose 和 World Dispose。
-- 同步加载、异步加载、加载中关闭、迟到结果、加载回调抛异常。
-- 多 Manager、多 Layer、多实例，以及 Get/Has/Close/Pop/CloseAll 语义。
-- UI Entity 直接 Dispose、UIManagerComponent 直接 Dispose、GameManager Dispose 时的 OnClose、资源卸载和出栈次数。
-- `RefreshUILifecycle` 后已打开 UI 使用新 Update/Close 回调，旧 `UILifecycle` 已释放且不会再次分发。
