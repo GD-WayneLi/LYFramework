@@ -7,6 +7,6 @@ namespace LYUnity.Resource
     public class ResourceLoaderComponent : Entity
     {
         public ResourcePackage Package;
-        public Dictionary<string, AssetHandle> AssetCache = new();
+        public Dictionary<string, AssetHandle> AssetCache = new(5);
     }
 }

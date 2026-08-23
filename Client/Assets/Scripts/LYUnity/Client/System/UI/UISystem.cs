@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using LYFramework;
 using LYFramework.Log;
-using LYFramework.Resource;
 using LYUnity.Resource;
+using LYUnity.Utility.Unity;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -27,12 +27,12 @@ namespace LYUnity.UI
             self.LogicComponent = null;
             self.GameObject = null;
             
-            self.Lifecycle = self.Parent?.Parent?.GetComponent<UIManagerComponent>()?.Lifecycle;
+            self.Lifecycle = self.Owner?.Parent?.GetComponent<UIManagerComponent>()?.Lifecycle;
         }
 
         public void Dispose(UIComponent self)
         {
-            var uiEntity = self.Parent?.Parent;
+            var uiEntity = self.Owner?.Parent;
             var manager = uiEntity?.GetComponent<UIManagerComponent>();
             if (manager == null)
             {
@@ -53,12 +53,6 @@ namespace LYUnity.UI
             }
 
             Object.Destroy(self.GameObject);
-            
-            var resLoader = self.Parent.GetComponent<ResourceLoaderComponent>();
-            if (self.Resource != null && !resLoader.IsDisposed)
-            {
-                resLoader.Unload(self.Resource);
-            }
             
             self.LogicComponent = null;
             self.GameObject = null;
@@ -115,22 +109,19 @@ namespace LYUnity.UI
 
             self.State = UIState.Loading;
 
-            var resLoader = self.Parent.GetComponent<ResourceLoaderComponent>();
-
-            self.Resource = await resLoader.Load(self.Path);
-
-            if (self.Resource == null)
+            self.Resource = await self.Owner.Load<GameObject>(self.Path);
+            if (!self.Resource)
             {
                 return;
             }
 
-            if (self.IsDisposed && !resLoader.IsDisposed)
+            if (self.IsDisposed)
             {
-                resLoader.Unload(self.Resource);
                 return;
             }
 
-            self.GameObject = Object.Instantiate(self.Resource as GameObject);
+            self.GameObject = Object.Instantiate(self.Resource);
+            self.IsVisible = true;
         }
         
         public static void SetOpen(this UIComponent self)
@@ -156,7 +147,15 @@ namespace LYUnity.UI
             }
 
             self.Depth = depth;
-            // todo : 处理层级
+            
+            var canvas = self.GameObject.GetComponent<Canvas>();
+            if (!canvas)
+            {
+                LYLogger.Error("Canvas is Null.");
+                return;
+            }
+            
+            canvas.sortingOrder = depth;
         }
 
         public static void SetVisible(this UIComponent self, bool isVisible)
@@ -170,7 +169,7 @@ namespace LYUnity.UI
 
             self.IsVisible = isVisible;
             
-            // todo：处理显示
+            self.GameObject.SetActiveEx(self.IsVisible);
         }
 
         private static void ThrowIfInvalid(UIComponent self)
@@ -183,12 +182,6 @@ namespace LYUnity.UI
             if (self.IsDisposed)
             {
                 throw new ObjectDisposedException(nameof(UIComponent));
-            }
-
-            if (!self.IsComponent || self.Parent == null)
-            {
-                throw new InvalidOperationException(
-                    "UIComponent is not attached to a valid Entity.");
             }
         }
     }

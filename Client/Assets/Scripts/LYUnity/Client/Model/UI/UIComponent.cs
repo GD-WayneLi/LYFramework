@@ -33,7 +33,7 @@ namespace LYUnity.UI
         
         public object UserData { get; internal set; }
 
-        public object Resource { get; internal set; }
+        public GameObject Resource { get; internal set; }
         
         public GameObject GameObject { get; internal set; }
     }

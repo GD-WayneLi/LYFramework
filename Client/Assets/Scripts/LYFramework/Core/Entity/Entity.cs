@@ -33,6 +33,8 @@ namespace LYFramework
 			get { return m_Components ??= new(); }
 		}
 
+		public Entity Owner => IsComponent ? Parent : this;
+
 		private EntityStatus m_Status;
 
         protected Entity()
@@ -105,6 +107,11 @@ namespace LYFramework
                     throw new Exception($"Parent domain is null: {GetType().Name}, {value.GetType().Name}");
 				}
 
+				if (value.IsComponent)
+				{
+					throw new InvalidOperationException("A component cannot be its own parent.");
+				}
+				
 				if (m_Parent != null)
 				{
 					if (m_Parent == value)
