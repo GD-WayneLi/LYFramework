@@ -56,6 +56,10 @@ namespace LYUnity.Resource
 
         public static void Unload(this ResourceLoaderComponent component, AssetHandle asset)
         {
+            if (!asset.IsValid)
+            {
+                return;
+            }
             UnloadInternal(asset).Forget();
         }
         
