@@ -7,13 +7,8 @@ namespace LYFramework
     {
         void Update(T component);
     }
-
-    internal interface ISystemUpdateInvoker
-    {
-        void Invoke(Entity component);
-    }
-
-    internal sealed class SystemUpdateInvoker<T> : ISystemUpdateInvoker where T : Entity
+    
+    internal sealed class SystemUpdateInvoker<T> : ISystemEventInvoker where T : Entity
     {
         private readonly ISystemUpdate<T> m_System;
 

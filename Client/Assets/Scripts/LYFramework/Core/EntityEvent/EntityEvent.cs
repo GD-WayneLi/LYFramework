@@ -6,11 +6,11 @@ namespace LYFramework
     /// <summary>
     /// 管理 Component 的 System 生命周期处理器和逐帧更新队列。
     /// </summary>
-    internal sealed class EntityLifecycle : IDisposable
+    internal sealed class EntityEvent : IDisposable
     {
-        private readonly Dictionary<Type, List<ISystemAwakeInvoker>> m_SystemAwakes = new();
-        private readonly Dictionary<Type, List<ISystemDisposeInvoker>> m_SystemDisposes = new();
-        private readonly Dictionary<Type, List<ISystemUpdateInvoker>> m_SystemUpdates = new();
+        private readonly Dictionary<Type, List<ISystemEventInvoker>> m_SystemAwakes = new();
+        private readonly Dictionary<Type, List<ISystemEventInvoker>> m_SystemDisposes = new();
+        private readonly Dictionary<Type, List<ISystemEventInvoker>> m_SystemUpdates = new();
         private readonly List<Entity> m_UpdateComponents = new();
 
         private bool m_IsDisposed;
@@ -25,15 +25,15 @@ namespace LYFramework
                 throw new ArgumentNullException(nameof(system));
             }
 
-            var awakeInvokers = CreateSystemLifecycleInvokers<ISystemAwakeInvoker>(
+            var awakeInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
                 system,
                 typeof(ISystemAwake<>),
-                typeof(SystemAwakeInvoker<>));
-            var disposeInvokers = CreateSystemLifecycleInvokers<ISystemDisposeInvoker>(
+                typeof(SystemEventInvoker<>));
+            var disposeInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
                 system,
                 typeof(ISystemDispose<>),
                 typeof(SystemDisposeInvoker<>));
-            var updateInvokers = CreateSystemLifecycleInvokers<ISystemUpdateInvoker>(
+            var updateInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
                 system,
                 typeof(ISystemUpdate<>),
                 typeof(SystemUpdateInvoker<>));
@@ -212,7 +212,7 @@ namespace LYFramework
         {
             if (m_IsDisposed)
             {
-                throw new ObjectDisposedException(nameof(EntityLifecycle));
+                throw new ObjectDisposedException(nameof(EntityEvent));
             }
         }
     }

@@ -8,13 +8,8 @@ namespace LYFramework
     {
         void Dispose(T component);
     }
-
-    internal interface ISystemDisposeInvoker
-    {
-        void Invoke(Entity component);
-    }
-
-    internal sealed class SystemDisposeInvoker<T> : ISystemDisposeInvoker where T : Entity
+    
+    internal sealed class SystemDisposeInvoker<T> : ISystemEventInvoker where T : Entity
     {
         private readonly ISystemDispose<T> m_System;
 

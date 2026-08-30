@@ -29,11 +29,11 @@ namespace LYFramework
         private readonly Dictionary<Type, IUtility> m_Utilities = new();
         private readonly Dictionary<Type, ISystem> m_Systems = new();
         private readonly List<ISystem> m_SystemRegistrationOrder = new();
-        private readonly EntityLifecycle m_EntityLifecycle = new();
+        private readonly EntityEvent m_EntityEvent = new();
 
         protected GameManagerBase()
         {
-            Game.World = new World(m_EntityLifecycle);
+            Game.World = new World(m_EntityEvent);
         }
 
         public abstract void Init();
@@ -41,7 +41,7 @@ namespace LYFramework
         public void Update()
         {
             ThrowIfUnavailable();
-            m_EntityLifecycle.Update();
+            m_EntityEvent.Update();
         }
 
         public virtual void Dispose()
@@ -76,7 +76,7 @@ namespace LYFramework
                 }
             }
 
-            m_EntityLifecycle.Dispose();
+            m_EntityEvent.Dispose();
             m_SystemRegistrationOrder.Clear();
             m_Systems.Clear();
             m_Utilities.Clear();
@@ -138,7 +138,7 @@ namespace LYFramework
             try
             {
                 instance.Init(this);
-                m_EntityLifecycle.RegisterSystem(instance);
+                m_EntityEvent.RegisterSystem(instance);
                 m_SystemRegistrationOrder.Add(instance);
             }
             catch (Exception initException)

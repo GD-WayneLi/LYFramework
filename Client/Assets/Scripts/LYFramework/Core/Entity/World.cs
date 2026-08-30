@@ -14,11 +14,11 @@ namespace LYFramework
         
         public bool IsDisposed {get; private set;}
         
-        private EntityLifecycle m_EntityLifecycle;
+        private EntityEvent m_EntityEvent;
 
-        internal World(EntityLifecycle entityLifecycle)
+        internal World(EntityEvent entityEvent)
         {
-            m_EntityLifecycle = entityLifecycle;
+            m_EntityEvent = entityEvent;
         }
 
         /// <summary>
@@ -68,12 +68,12 @@ namespace LYFramework
         
         internal void OnComponentAwake(Entity component)
         {
-            m_EntityLifecycle?.Awake(component);
+            m_EntityEvent?.Awake(component);
         }
 
         internal void OnComponentDispose(Entity component)
         {
-            m_EntityLifecycle?.DisposeComponent(component);
+            m_EntityEvent?.DisposeComponent(component);
         }
     }
 }

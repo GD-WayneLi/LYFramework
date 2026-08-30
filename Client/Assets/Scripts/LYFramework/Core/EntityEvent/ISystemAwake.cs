@@ -12,17 +12,12 @@ namespace LYFramework
         /// </summary>
         void Awake(T component);
     }
-
-    internal interface ISystemAwakeInvoker
-    {
-        void Invoke(Entity component);
-    }
-
-    internal sealed class SystemAwakeInvoker<T> : ISystemAwakeInvoker where T : Entity
+    
+    internal sealed class SystemEventInvoker<T> : ISystemEventInvoker where T : Entity
     {
         private readonly ISystemAwake<T> m_System;
 
-        public SystemAwakeInvoker(object system)
+        public SystemEventInvoker(object system)
         {
             m_System = (ISystemAwake<T>)system;
         }
