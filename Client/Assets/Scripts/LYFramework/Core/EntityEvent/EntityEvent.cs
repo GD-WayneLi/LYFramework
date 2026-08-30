@@ -25,22 +25,9 @@ namespace LYFramework
                 throw new ArgumentNullException(nameof(system));
             }
 
-            var awakeInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
-                system,
-                typeof(ISystemAwake<>),
-                typeof(SystemEventInvoker<>));
-            var disposeInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
-                system,
-                typeof(ISystemDispose<>),
-                typeof(SystemDisposeInvoker<>));
-            var updateInvokers = CreateSystemLifecycleInvokers<ISystemEventInvoker>(
-                system,
-                typeof(ISystemUpdate<>),
-                typeof(SystemUpdateInvoker<>));
-
-            AddSystemLifecycleInvokers(m_SystemAwakes, awakeInvokers);
-            AddSystemLifecycleInvokers(m_SystemDisposes, disposeInvokers);
-            AddSystemLifecycleInvokers(m_SystemUpdates, updateInvokers);
+            TryAddSystemEventInvokers(m_SystemAwakes, system, typeof(ISystemAwake<>), typeof(SystemEventInvoker<>));
+            TryAddSystemEventInvokers(m_SystemDisposes, system, typeof(ISystemDispose<>), typeof(SystemDisposeInvoker<>));
+            TryAddSystemEventInvokers(m_SystemUpdates, system, typeof(ISystemUpdate<>), typeof(SystemUpdateInvoker<>));
         }
 
         public void Awake(Entity component)
@@ -167,14 +154,12 @@ namespace LYFramework
             }
         }
 
-        private static List<(Type ComponentType, TInvoker Invoker)> CreateSystemLifecycleInvokers<TInvoker>(ISystem system, Type lifecycleInterfaceType, Type invokerTypeDefinition) where TInvoker : class
+        private static void TryAddSystemEventInvokers<TInvoker>(Dictionary<Type, List<TInvoker>> eventInvokers, ISystem system, Type eventInterfaceType, Type invokerTypeDefinition) where TInvoker : class
         {
-            var invokers = new List<(Type ComponentType, TInvoker Invoker)>();
-
             foreach (var interfaceType in system.GetType().GetInterfaces())
             {
                 if (!interfaceType.IsGenericType ||
-                    interfaceType.GetGenericTypeDefinition() != lifecycleInterfaceType)
+                    interfaceType.GetGenericTypeDefinition() != eventInterfaceType)
                 {
                     continue;
                 }
@@ -188,24 +173,19 @@ namespace LYFramework
                         $"Unable to create system lifecycle invoker: {system.GetType().Name}, {componentType.Name}");
                 }
 
-                invokers.Add((componentType, invoker));
+                AddSystemEventInvoker(eventInvokers, componentType, invoker);
             }
-
-            return invokers;
         }
 
-        private static void AddSystemLifecycleInvokers<TInvoker>(Dictionary<Type, List<TInvoker>> lifecycleInvokers, List<(Type ComponentType, TInvoker Invoker)> invokers)
+        private static void AddSystemEventInvoker<TInvoker>(Dictionary<Type, List<TInvoker>> eventInvokers, Type componentType, TInvoker invoker)
         {
-            foreach (var item in invokers)
+            if (!eventInvokers.TryGetValue(componentType, out var componentInvokers))
             {
-                if (!lifecycleInvokers.TryGetValue(item.ComponentType, out var componentInvokers))
-                {
-                    componentInvokers = new List<TInvoker>();
-                    lifecycleInvokers.Add(item.ComponentType, componentInvokers);
-                }
-
-                componentInvokers.Add(item.Invoker);
+                componentInvokers = new List<TInvoker>();
+                eventInvokers.Add(componentType, componentInvokers);
             }
+
+            componentInvokers.Add(invoker);
         }
 
         private void ThrowIfDisposed()
