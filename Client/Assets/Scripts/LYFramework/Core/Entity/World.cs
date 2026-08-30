@@ -3,51 +3,53 @@ using System.Collections.Generic;
 
 namespace LYFramework
 {
+    /// <summary>
+    /// Entity管理类
+    /// </summary>
     public sealed class World : IDisposable
     {
-        private Dictionary<long, Entity> m_Entitys = new();
+        private readonly Dictionary<long, Entity> m_Entitys = new();
 
-        private bool m_IsDisposed;
+        private readonly List<EntityDomain> m_EntityDomains = new();
+        
+        public bool IsDisposed {get; private set;}
+        
+        private EntityLifecycle m_EntityLifecycle;
 
-        internal World(EntityLifecycle entityLifecycle) : this(new EntityDomain(), entityLifecycle)
+        internal World(EntityLifecycle entityLifecycle)
         {
+            m_EntityLifecycle = entityLifecycle;
         }
-
-        private World(EntityDomain domain, EntityLifecycle entityLifecycle)
-        {
-            if (domain == null)
-            {
-                throw new ArgumentNullException(nameof(domain));
-            }
-
-            if (domain.IsDisposed)
-            {
-                throw new ObjectDisposedException(domain.GetType().Name);
-            }
-
-            Domain = domain;
-            Domain.SetEntityLifecycle(entityLifecycle);
-        }
-
-        /// <summary>
-        /// 获取当前 World 唯一的 EntityDomain 根节点。
-        /// </summary>
-        public EntityDomain Domain { get; }
 
         /// <summary>
         /// 销毁 EntityDomain 根节点及当前 World 仍管理的全部游离 Entity。重复调用安全。
         /// </summary>
         public void Dispose()
         {
-            if (m_IsDisposed)
+            if (IsDisposed)
             {
                 return;
             }
 
-            m_IsDisposed = true;
-            Domain.Dispose();
+            foreach (var entityDomain in m_EntityDomains)
+            {
+                entityDomain.Dispose();
+            }
+            
+            m_EntityDomains.Clear();
+            m_Entitys.Clear();
         }
 
+        public EntityDomain AddDomain()
+        {
+            var domain = new EntityDomain();
+            
+            m_EntityDomains.Add(domain);
+            Add(domain);
+            
+            return domain;
+        }
+        
         public void Add(Entity entity)
         {
             m_Entitys.Add(entity.InstanceId, entity);
@@ -62,6 +64,16 @@ namespace LYFramework
         {
             m_Entitys.TryGetValue(instanceId, out var entity);
             return entity;
+        }
+        
+        internal void OnComponentAwake(Entity component)
+        {
+            m_EntityLifecycle?.Awake(component);
+        }
+
+        internal void OnComponentDispose(Entity component)
+        {
+            m_EntityLifecycle?.DisposeComponent(component);
         }
     }
 }

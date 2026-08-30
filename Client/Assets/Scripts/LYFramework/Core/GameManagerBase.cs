@@ -25,12 +25,7 @@ namespace LYFramework
         private bool m_IsDisposed;
         private bool m_IsDisposing;
         public bool IsDisposed => m_IsDisposed;
-
-        /// <summary>
-        /// 获取由当前 GameManager 独占的 World。销毁 GameManager 时会一并销毁根 EntityDomain 与全部 Entity。
-        /// </summary>
-        public World World { get; }
-
+        
         private readonly Dictionary<Type, IUtility> m_Utilities = new();
         private readonly Dictionary<Type, ISystem> m_Systems = new();
         private readonly List<ISystem> m_SystemRegistrationOrder = new();
@@ -38,7 +33,7 @@ namespace LYFramework
 
         protected GameManagerBase()
         {
-            World = new World(m_EntityLifecycle);
+            Game.World = new World(m_EntityLifecycle);
         }
 
         public abstract void Init();
@@ -61,7 +56,8 @@ namespace LYFramework
 
             try
             {
-                World.Dispose();
+                Game.World.Dispose();
+                Game.World = null;
             }
             catch (Exception exception)
             {

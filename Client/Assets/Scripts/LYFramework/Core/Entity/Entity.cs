@@ -174,7 +174,7 @@ namespace LYFramework
 		public int ChildCount => m_Children?.Count ?? 0;
         public int ComponentCount => m_Components?.Count ?? 0;
 
-		static T Create<T>() where T : Entity
+		protected static T Create<T>() where T : Entity
 		{
 			var entity = Activator.CreateInstance(typeof(T), true) as T;
 			if (entity == null)
@@ -185,16 +185,18 @@ namespace LYFramework
 			entity.InstanceId = Interlocked.Increment(ref s_InstanceIdGenerator);
 			entity.m_Status = EntityStatus.None;
 
+			Game.World.Add(entity);
+			
             return entity;
 		}
 
-        public T AddChild<T>() where T : Entity
+        public Entity AddChild()
         {
             ThrowIfDisposed();
 
-			var child = Create<T>();
+			var child = Create<Entity>();
 			child.Parent = this;
-
+			
             return child;
         }
 
@@ -250,7 +252,7 @@ namespace LYFramework
 			try
 			{
 				component.ComponentParent = this;
-				component.Domain.OnComponentAwake(component);
+				Game.World.OnComponentAwake(component);
 			}
 			catch
 			{
@@ -356,7 +358,7 @@ namespace LYFramework
 			{
 				try
 				{
-					Domain.OnComponentDispose(this);
+					Game.World.OnComponentDispose(this);
 				}
 				catch (Exception exception)
 				{
@@ -366,7 +368,8 @@ namespace LYFramework
 
             DetachFromParent();
 			InstanceId = 0;
-
+			Game.World.Remove(InstanceId);
+			
 			if (exceptions != null)
 			{
 				throw new AggregateException($"Entity disposal failed: {GetType().Name}", exceptions);

@@ -5,11 +5,6 @@ namespace LYFramework
     public interface IGameManager
     {
         /// <summary>
-        /// 获取当前游戏的 World。World 固定拥有一个 EntityDomain 根节点，并管理全部 Entity 的生命周期与查询。
-        /// </summary>
-        World World { get; }
-
-        /// <summary>
         /// 同步更新当前所有声明了 ISystemUpdate 生命周期的存活 Component。
         /// </summary>
         void Update();
