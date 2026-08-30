@@ -27,7 +27,7 @@ namespace LYUnity.UI
             self.LogicComponent = null;
             self.GameObject = null;
             
-            self.Lifecycle = self.Owner?.Parent?.GetComponent<UIManagerComponent>()?.Lifecycle;
+            self.Event = self.Owner?.Parent?.GetComponent<UIManagerComponent>()?.Event;
         }
 
         public void Dispose(UIComponent self)
@@ -44,7 +44,7 @@ namespace LYUnity.UI
             
             try
             {
-                self.Lifecycle.Close(self.LogicComponent);
+                self.Event.Close(self.LogicComponent);
                 manager.OnUIClose(self);
             }
             catch (Exception exception)
@@ -73,7 +73,7 @@ namespace LYUnity.UI
         {
             if (component.IsVisible)
             {
-                component.Lifecycle.Update(component.LogicComponent);
+                component.Event.Update(component.LogicComponent);
             }
         }
     }

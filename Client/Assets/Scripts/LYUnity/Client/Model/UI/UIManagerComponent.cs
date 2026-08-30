@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using LYFramework;
+using UnityEngine;
 
 namespace LYUnity.UI
 {
@@ -11,7 +12,9 @@ namespace LYUnity.UI
         internal readonly List<Entity> UIStack = new(50);
         internal readonly Dictionary<int, ILayerGroup> LayerGroups = new();
 
-        internal UILifecycle Lifecycle { get; set; }
+        internal UIEvent Event { get; set; }
+
+        public GameObject UIRoot;
         
         public int Count => UIStack.Count;
 

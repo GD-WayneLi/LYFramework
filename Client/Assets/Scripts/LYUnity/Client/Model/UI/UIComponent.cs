@@ -16,7 +16,7 @@ namespace LYUnity.UI
     /// </summary>
     public sealed class UIComponent : Entity
     {
-        internal UILifecycle Lifecycle { get; set; }
+        internal UIEvent Event { get; set; }
         
         public UIState State { get; internal set; }
 

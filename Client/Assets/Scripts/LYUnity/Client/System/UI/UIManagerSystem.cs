@@ -13,12 +13,13 @@ namespace LYUnity.UI
         public void Awake(UIManagerComponent self)
         {
             RefreshUILifecycle(self);
+            
         }
 
         public void Dispose(UIManagerComponent self)
         {
-            var lifecycle = self.Lifecycle;
-            self.Lifecycle = null;
+            var lifecycle = self.Event;
+            self.Event = null;
             lifecycle?.Dispose();
             self.LayerGroups.Clear();
         }
@@ -31,16 +32,16 @@ namespace LYUnity.UI
                 throw new InvalidOperationException("UIManagerSystem has not been registered in a GameManager.");
             }
 
-            var lifecycle = CreateLifecycle(gameManager);
-            var previousLifecycle = self.Lifecycle;
-            self.Lifecycle = lifecycle;
+            var lifecycle = CreateUIEvent(gameManager);
+            var previousLifecycle = self.Event;
+            self.Event = lifecycle;
 
             previousLifecycle?.Dispose();
         }
 
-        private static UILifecycle CreateLifecycle(IGameManager gameManager)
+        private static UIEvent CreateUIEvent(IGameManager gameManager)
         {
-            var lifecycle = new UILifecycle();
+            var lifecycle = new UIEvent();
             try
             {
                 lifecycle.RegisterSystems(gameManager.GetSystems());
@@ -75,7 +76,7 @@ namespace LYUnity.UI
         {
             ThrowIfUnavailable(self);
 
-            Entity uiEntity = self.Parent.AddChild<Entity>();
+            Entity uiEntity = self.Owner.AddChild();
             self.UIStack.Add(uiEntity);
 
             var uiComponent = uiEntity.AddComponent<UIComponent>();
@@ -91,7 +92,7 @@ namespace LYUnity.UI
                 return;
             }
             
-            var lifecycle = self.Lifecycle;
+            var lifecycle = self.Event;
 
             lifecycle.Loaded(uiLogicComponent);
             
@@ -279,7 +280,7 @@ namespace LYUnity.UI
                 throw new InvalidOperationException("UIManagerComponent is not attached to a valid Entity.");
             }
 
-            if (self.Lifecycle == null)
+            if (self.Event == null)
             {
                 throw new InvalidOperationException("UIManagerComponent did not receive its Awake lifecycle.");
             }
