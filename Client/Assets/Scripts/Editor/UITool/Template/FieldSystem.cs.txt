@@ -1,0 +1,16 @@
+using Demo.Client.Model;
+using LYFramework;
+using LYUnity.UI;
+using UnityEngine.UI;
+using TMPro;
+
+namespace Demo.Client.System
+{
+    public partial class #NAME#System : SystemBase, IUILogicSystem<#NAME#Component>
+    {
+        public void OnLoaded(#NAME#Component self)
+        {
+#FIELD#
+        }
+    }
+}

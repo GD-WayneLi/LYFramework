@@ -14,13 +14,6 @@ namespace LYFramework
         
         public bool IsDisposed {get; private set;}
         
-        private EntityEvent m_EntityEvent;
-
-        internal World(EntityEvent entityEvent)
-        {
-            m_EntityEvent = entityEvent;
-        }
-
         /// <summary>
         /// 销毁 EntityDomain 根节点及当前 World 仍管理的全部游离 Entity。重复调用安全。
         /// </summary>
@@ -64,16 +57,6 @@ namespace LYFramework
         {
             m_Entitys.TryGetValue(instanceId, out var entity);
             return entity;
-        }
-        
-        internal void OnComponentAwake(Entity component)
-        {
-            m_EntityEvent?.Awake(component);
-        }
-
-        internal void OnComponentDispose(Entity component)
-        {
-            m_EntityEvent?.DisposeComponent(component);
         }
     }
 }

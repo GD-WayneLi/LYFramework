@@ -1,3 +1,5 @@
+using LYFramework.Log;
+
 namespace LYFramework
 {
     /// <summary>
@@ -13,6 +15,15 @@ namespace LYFramework
         void Awake(T component);
     }
     
+    public interface ISystemAwake<T, K> where T : Entity
+    {
+        /// <summary>
+        /// 初始化刚完成挂载的 Component。抛出异常将使本次添加操作回滚，
+        /// 但不会触发 Component 的 Dispose 生命周期。
+        /// </summary>
+        void Awake(T component, K param);
+    }
+    
     internal sealed class SystemEventInvoker<T> : ISystemEventInvoker where T : Entity
     {
         private readonly ISystemAwake<T> m_System;
@@ -25,6 +36,27 @@ namespace LYFramework
         public void Invoke(Entity component)
         {
             m_System.Awake((T)component);
+        }
+    }
+
+
+    internal sealed class SystemEventInvoker<T, K> : ISystemEventInvoker<K> where T : Entity
+    {
+        private readonly ISystemAwake<T, K> m_System;
+
+        public SystemEventInvoker(object system)
+        {
+            m_System = (ISystemAwake<T, K>)system;
+        }
+
+        public void Invoke(Entity component, K param)
+        {
+            m_System.Awake((T)component, param);
+        }
+
+        public void Invoke(Entity component)
+        {
+            LYLogger.Error($"need type :{typeof(K).Name} param");
         }
     }
 }

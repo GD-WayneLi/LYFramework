@@ -2,18 +2,20 @@ using System;
 using System.Threading.Tasks;
 using LYFramework;
 using LYFramework.Log;
+using LYUnity.Utility.Unity;
+using UnityEngine;
 
 namespace LYUnity.UI
 {
     /// <summary>
     /// UIManagerComponent 的无状态方法和 Entity 生命周期处理器。
     /// </summary>
-    public class UIManagerSystem : SystemBase, ISystemAwake<UIManagerComponent>, ISystemDispose<UIManagerComponent>
+    public class UIManagerSystem : SystemBase, ISystemAwake<UIManagerComponent, GameObject>, ISystemDispose<UIManagerComponent>
     {
-        public void Awake(UIManagerComponent self)
+        public void Awake(UIManagerComponent self, GameObject gameObject)
         {
+            self.UIRoot = gameObject.AddChild("UIRoot");
             RefreshUILifecycle(self);
-            
         }
 
         public void Dispose(UIManagerComponent self)

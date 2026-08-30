@@ -6,7 +6,7 @@ namespace LYFramework
     /// <summary>
     /// 管理 Component 的 System 生命周期处理器和逐帧更新队列。
     /// </summary>
-    internal sealed class EntityEvent : SystemEventBase
+    public sealed class EntityEvent : SystemEventBase
     {
         private readonly Dictionary<Type, List<ISystemEventInvoker>> m_SystemAwakes = new();
         private readonly Dictionary<Type, List<ISystemEventInvoker>> m_SystemDisposes = new();
@@ -44,6 +44,29 @@ namespace LYFramework
             }
         }
 
+        public void Awake<T>(Entity component, T param)
+        {
+            ThrowIfDisposed();
+            
+            var componentType = component.GetType();
+            if (m_SystemAwakes.TryGetValue(componentType, out var invokers))
+            {
+                var count = invokers.Count;
+                for (var i = 0; i < count && !component.IsDisposed; i++)
+                {
+                    if (invokers[i] is ISystemEventInvoker<T> invoker)
+                    {
+                        invoker.Invoke(component, param);
+                    }
+                }
+            }
+
+            if (!component.IsDisposed && m_SystemUpdates.ContainsKey(componentType))
+            {
+                m_UpdateComponents.Add(component);
+            }
+        }
+        
         public void Update()
         {
             ThrowIfDisposed();

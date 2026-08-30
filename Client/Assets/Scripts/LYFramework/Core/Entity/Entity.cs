@@ -239,25 +239,18 @@ namespace LYFramework
 
         public T AddComponent<T>() where T : Entity, new()
         {
-            ThrowIfDisposed();
+			var component = InternalAddComponent<T>();
+			
+			Game.SystemEvent.Awake(component);
 
-			if (HasComponent<T>())
-			{
-				throw new InvalidOperationException($"Component already exists: {typeof(T).Name}");
-			}
+            return component;
+        }
 
-			var component = Create<T>();
-			component.IsComponent = true;
+        public T AddComponent<T, K>(K param) where T : Entity, new()
+        {
+	        var component = InternalAddComponent<T>();
 
-			try
-			{
-				component.ComponentParent = this;
-				Game.World.OnComponentAwake(component);
-			}
-			catch
-			{
-				throw;
-			}
+			Game.SystemEvent.Awake(component, param);
 
             return component;
         }
@@ -358,7 +351,7 @@ namespace LYFramework
 			{
 				try
 				{
-					Game.World.OnComponentDispose(this);
+					Game.SystemEvent.DisposeComponent(this);
 				}
 				catch (Exception exception)
 				{
@@ -445,6 +438,22 @@ namespace LYFramework
 			m_Children.Remove(entity.InstanceId);
 		}
 
+		private T InternalAddComponent<T>() where T : Entity, new()
+		{
+			ThrowIfDisposed();
+
+			if (HasComponent<T>())
+			{
+				throw new InvalidOperationException($"Component already exists: {typeof(T).Name}");
+			}
+
+			var component = Create<T>();
+			component.IsComponent = true;
+			component.ComponentParent = this;
+			
+			return component;
+		}
+		
 		private void OnAddComponent(Entity entity)
 		{
 			Components.Add(entity.GetType(), entity);

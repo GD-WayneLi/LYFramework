@@ -31,5 +31,12 @@ namespace LYUnity.Utility.Unity
             
             return component;
         }
+
+        public static GameObject AddChild(this GameObject go, string name = null)
+        {
+            var childGo = new GameObject(name);
+            childGo.transform.SetParent(go.transform.parent);
+            return childGo;
+        }
     }
 }
