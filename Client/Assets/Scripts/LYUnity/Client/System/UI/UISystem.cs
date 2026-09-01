@@ -120,7 +120,10 @@ namespace LYUnity.UI
                 return;
             }
 
-            self.GameObject = Object.Instantiate(self.Resource);
+            var uiEntity = self.Owner?.Parent;
+            var manager = uiEntity?.GetComponent<UIManagerComponent>();
+
+            self.GameObject = Object.Instantiate(self.Resource, manager.UIRoot.transform);
             self.IsVisible = true;
         }
         

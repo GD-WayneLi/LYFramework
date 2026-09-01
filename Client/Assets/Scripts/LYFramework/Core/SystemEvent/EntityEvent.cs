@@ -20,9 +20,11 @@ namespace LYFramework
             base.RegisterSystem(system);
 
             TryAddSystemEventInvokers(m_SystemAwakes, system, typeof(ISystemAwake<>), typeof(SystemEventInvoker<>));
+            TryAddSystemEventInvokers(m_SystemAwakes, system, typeof(ISystemAwake<,>), typeof(SystemEventInvoker<,>));
             TryAddSystemEventInvokers(m_SystemDisposes, system, typeof(ISystemDispose<>), typeof(SystemDisposeInvoker<>));
             TryAddSystemEventInvokers(m_SystemUpdates, system, typeof(ISystemUpdate<>), typeof(SystemUpdateInvoker<>));
         }
+
 
         public void Awake(Entity component)
         {

@@ -7,7 +7,7 @@ namespace Demo
     {
         void Start()
         {
-            GameManager.Instance.Init();
+            GameManager.Instance.Init(gameObject);
         }
 
         private void OnDestroy()

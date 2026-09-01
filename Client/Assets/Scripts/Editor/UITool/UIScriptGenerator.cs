@@ -73,8 +73,8 @@ namespace LYUnity.UITool.Editor
 
         private static void Generate(GameObject prefab)
         {
-            string prefabName = SanitizePathSegment(prefab.name);
-            string className = SanitizeIdentifier(prefab.name);
+            string prefabName = prefab.name;
+            string className = prefab.name;
             string generatedFolder = CombineAssetPath(GeneratedComponentRoot, prefabName);
             string componentFolder = CombineAssetPath(ComponentRoot, prefabName);
             string generatedSystemFolder = CombineAssetPath(GeneratedSystemRoot, prefabName);
@@ -249,7 +249,7 @@ namespace LYUnity.UITool.Editor
 
         private static string MakeUniqueIdentifier(string value, ISet<string> usedNames)
         {
-            string baseName = SanitizeIdentifier(value);
+            string baseName = value;
             string uniqueName = baseName;
             var suffix = 2;
             while (!usedNames.Add(uniqueName))
@@ -259,40 +259,7 @@ namespace LYUnity.UITool.Editor
 
             return uniqueName;
         }
-
-        private static string SanitizeIdentifier(string value)
-        {
-            var builder = new StringBuilder(value.Length + 1);
-            foreach (char character in value)
-            {
-                builder.Append(char.IsLetterOrDigit(character) || character == '_' ? character : '_');
-            }
-
-            if (builder.Length == 0)
-            {
-                builder.Append('_');
-            }
-            else if (!char.IsLetter(builder[0]) && builder[0] != '_')
-            {
-                builder.Insert(0, '_');
-            }
-
-            string identifier = builder.ToString();
-            return CSharpKeywords.Contains(identifier) ? "_" + identifier : identifier;
-        }
-
-        private static string SanitizePathSegment(string value)
-        {
-            var builder = new StringBuilder(value.Length);
-            char[] invalidCharacters = Path.GetInvalidFileNameChars();
-            foreach (char character in value)
-            {
-                builder.Append(Array.IndexOf(invalidCharacters, character) >= 0 || character == '.' ? '_' : character);
-            }
-
-            return builder.Length == 0 ? "UI" : builder.ToString();
-        }
-
+        
         private static string CombineAssetPath(string parent, string child)
         {
             return (parent.TrimEnd('/') + "/" + child.Trim('/')).Replace('\\', '/');

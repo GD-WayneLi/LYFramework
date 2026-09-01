@@ -37,16 +37,16 @@ namespace LYFramework
                     continue;
                 }
 
-                var componentType = interfaceType.GetGenericArguments()[0];
-                var invokerType = invokerTypeDefinition.MakeGenericType(componentType);
+                var componentTypes = interfaceType.GetGenericArguments();
+                var invokerType = invokerTypeDefinition.MakeGenericType(componentTypes);
                 var invoker = Activator.CreateInstance(invokerType, system) as TInvoker;
                 if (invoker == null)
                 {
                     throw new InvalidOperationException(
-                        $"Unable to create system lifecycle invoker: {system.GetType().Name}, {componentType.Name}");
+                        $"Unable to create system lifecycle invoker: {system.GetType().Name}, {componentTypes[0].Name}");
                 }
 
-                AddSystemEventInvoker(eventInvokers, componentType, invoker);
+                AddSystemEventInvoker(eventInvokers, componentTypes[0], invoker);
             }
         }
 

@@ -10,7 +10,7 @@ namespace LYUnity.Resource
     {
         public void Awake(ResourceLoaderComponent component)
         {
-            component.Package = YooAssets.GetPackage("");
+            component.Package = YooAssets.GetPackage("DefaultPackage");
         }
 
         public void Dispose(ResourceLoaderComponent component)

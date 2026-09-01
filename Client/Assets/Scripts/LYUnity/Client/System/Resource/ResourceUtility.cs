@@ -14,7 +14,7 @@ namespace LYUnity.Resource
                 return null;
             }
             
-            if (entity.TryGetComponent<ResourceLoaderComponent>(out var component))
+            if (!entity.TryGetComponent<ResourceLoaderComponent>(out var component))
             {
                 component = entity.AddComponent<ResourceLoaderComponent>();
             }
