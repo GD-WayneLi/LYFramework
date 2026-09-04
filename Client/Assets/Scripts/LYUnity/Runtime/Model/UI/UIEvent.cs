@@ -128,7 +128,7 @@ namespace LYUnity.UI
     /// 保存一个 UIManager 的 UI 专属生命周期处理器。
     /// 注册阶段反射 System 接口，运行阶段按具体 Component 类型直接分发。
     /// </summary>
-    internal sealed class UIEvent : SystemEventBase
+    public sealed class UIEvent : SystemEventBase
     {
         private Dictionary<Type, List<ISystemEventInvoker>> m_LoadedInvokers = new();
         private Dictionary<Type, List<ISystemEventInvoker>> m_OpenInvokers = new();

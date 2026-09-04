@@ -31,9 +31,6 @@ namespace QFramework.Demo
             // 初始化UI组件
             var uiManagerEntity = domain.AddChild();
             var uiManager = uiManagerEntity.AddComponent<UIManagerComponent, GameObject>(m_Root);
-            uiManager.RegisterLayerGroup(new LayerGroup());
-
-            await uiManager.OpenUI<UILoginComponent>("Assets/Bundles/Prefabs/UI/UILogin.prefab", 1);
         }
         
     }

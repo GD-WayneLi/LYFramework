@@ -9,10 +9,10 @@ namespace LYUnity.UI
     /// </summary>
     public sealed class UIManagerComponent : Entity
     {
-        internal readonly List<Entity> UIStack = new(50);
-        internal readonly Dictionary<int, ILayerGroup> LayerGroups = new();
+        public readonly List<Entity> UIStack = new(50);
+        public readonly Dictionary<int, ILayerGroup> LayerGroups = new();
 
-        internal UIEvent Event { get; set; }
+        public UIEvent Event { get; set; }
 
         public GameObject UIRoot;
         
