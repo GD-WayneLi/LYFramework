@@ -1,6 +1,6 @@
 using LYUnity.UI;
 
-namespace Demo.Client.System.UI
+namespace Demo.Model.Client
 {
     public class LayerGroup : ILayerGroup
     {
