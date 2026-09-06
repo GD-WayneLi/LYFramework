@@ -4,11 +4,8 @@
 
 - 用来实现Unity相关架构，不负责具体业务
 - 承载Unity、第三方包和当前项目相关适配，可引用 `LYFramework`，不得让 `LYFramework` 反向依赖本目录。
+- 不可引用业务层
 
 ## 分层职责
 
-- `Model` 保存 Entity Component、接口骨架、枚举和轻量状态，不直接承载复杂流程或 Unity 生命周期入口。
-- `HotUpdate` 保存接入 GameManager 的行为和生命周期分发，通过 `ISystemAwake<T>`、`ISystemUpdate<T>`、`ISystemDispose<T>` 等接口处理 Component。
-- Model 与 System 可以共同依赖 `LYFramework` 的 Core、Log、ReferencePool、Network 抽象，但不得依赖具体业务场景。
-
-- `Utility` 脱离esc架构的其他工具
+- `Editor`文件夹为编辑器目录，`Runtime`文件夹为运行时目录
