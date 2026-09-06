@@ -25,7 +25,6 @@ aiEditMode: inherit
 - `Canvas`
 - `CanvasScaler`
 - `GraphicRaycaster`
-- `ComponentFinder`（如项目现有流程需要）
 
 Canvas 使用 `Screen Space - Overlay`。CanvasScaler 使用 `Scale With Screen Size`，参考分辨率统一为 `1920 x 1080`，除非界面有明确的特殊需求。
 
@@ -59,7 +58,7 @@ m_ItemList
 
 - 需要绑定的节点必须命名为 `m_语义名称`。
 - 不需要绑定的纯装饰节点不要使用 `m_`。
-- `m_` 节点名称必须唯一，避免生成字段冲突和 `ComponentFinder` 字典覆盖。
+- `m_` 节点名称必须唯一。
 - 生成绑定代码后，不要随意修改 `m_` 节点名称或其父级层级；如果必须修改，应重新生成 UI 脚本。
 - `m_` 节点应直接挂载目标组件，减少依赖隐藏子节点的查找逻辑。
 

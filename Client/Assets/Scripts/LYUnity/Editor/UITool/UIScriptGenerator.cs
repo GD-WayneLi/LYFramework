@@ -15,7 +15,7 @@ namespace LYUnity.UITool.Editor
         private const string ComponentRoot = "Assets/Scripts/Demo/Model/Client/UI";
         private const string GeneratedSystemRoot = "Assets/Scripts/Demo/System/Clinet/Generage/UI";
         private const string SystemRoot = "Assets/Scripts/Demo/System/Clinet/UI";
-        private const string TemplateRoot = "Assets/Scripts/Editor/UITool/Template";
+        private const string TemplateRoot = "Assets/Scripts/LYUnity/Editor/UITool/Template";
         private const string AssetsMenuPath = "Assets/生成UI脚本";
         private const string GameObjectMenuPath = "GameObject/生成UI脚本";
 
