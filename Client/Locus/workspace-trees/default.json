@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 2,
+  "presetId": "default",
+  "name": "Default",
+  "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+  "revision": 3,
+  "lastOperationId": "b1fe6536-9e42-4ed6-9589-11a08415581e",
+  "nodes": [
+    {
+      "nodeId": "resource:system:d180437a-e36e-4eb3-a0f3-baf14a5fdec0",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "newSession",
+      "hidden": false,
+      "position": 0
+    },
+    {
+      "nodeId": "resource:system:afa97f34-3232-402b-9b38-a2f49900754b",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "knowledge",
+      "hidden": false,
+      "position": 3
+    },
+    {
+      "nodeId": "resource:system:3d284afc-b323-4d8f-8c4d-4c4755cf08da",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "collaboration",
+      "hidden": false,
+      "position": 4
+    },
+    {
+      "nodeId": "resource:system:e2d7b7a9-c1fa-4e45-b8d2-56117db39d3b",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "assets",
+      "hidden": false,
+      "position": 5
+    },
+    {
+      "nodeId": "resource:system:92e9c3d4-1744-4c97-bfa3-45d06af6af28",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "views",
+      "hidden": false,
+      "position": 6
+    },
+    {
+      "nodeId": "resource:system:5c4098b5-00a0-429a-b5c3-f3bd62a75c2a",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "system",
+      "resourceId": "archived",
+      "hidden": true,
+      "position": 7
+    },
+    {
+      "nodeId": "resource:session:18d443c4-97a2-4c37-9467-10e117410458",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "session",
+      "resourceId": "7d9833b7-ae9a-4e0c-8aec-41c2ae544fb1",
+      "hidden": false,
+      "position": 2
+    },
+    {
+      "nodeId": "resource:session:d5032776-ded4-4578-ad13-57d585edf743",
+      "projectId": "unity-69b3aa86c65c41bb6f97d63d",
+      "nodeKind": "resource",
+      "resourceKind": "session",
+      "resourceId": "53b41f75-f594-4749-b906-af3cff29a8c7",
+      "hidden": false,
+      "position": 1
+    }
+  ]
+}

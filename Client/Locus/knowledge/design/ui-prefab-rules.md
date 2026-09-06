@@ -1,23 +1,10 @@
 ---
 id: kd_cf943365-ed4d-43d4-9bc2-91b115898aa1
-type: design
-path: ui-prefab-rules.md
-title: ui-prefab-rules
-inheritInjectMode: true
-summaryEnabled: true
-commandEnabled: false
-readOnly: false
-inheritAiConfig: true
-createdAt: 1788514577622
-updatedAt: 1788514577624
+injectMode: inherit
+summary: 项目 UI Prefab 的统一目录、层级、m_ 控件命名、脚本生成、业务逻辑和 AI 自动拼界面流程规范。
+aiEditMode: inherit
 ---
 
-# ui-prefab-rules
-
-## Summary
-项目 UI Prefab 的统一目录、层级、m_ 控件命名、脚本生成、业务逻辑和 AI 自动拼界面流程规范。
-
-## Content
 # UI Prefab 制作与自动绑定规则
 
 ## 1. 适用范围

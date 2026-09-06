@@ -15,21 +15,47 @@ using Microsoft.Win32;
 
 namespace Locus
 {
+    public sealed class LocusFileAttachment
+    {
+        public string Path { get; }
+        public string Name { get; }
+        public string TypeLabel { get; }
+        public string Source { get; }
+
+        public LocusFileAttachment(
+            string path,
+            string name = "",
+            string typeLabel = "",
+            string source = "")
+        {
+            Path = path ?? "";
+            Name = name ?? "";
+            TypeLabel = typeLabel ?? "";
+            Source = source ?? "";
+        }
+    }
+
     public sealed class LocusEditorWindow : EditorWindow
     {
         private const bool OverlaySyncEnabled = true;
+        private const string SendToLocusEvent = "unity-send-to-locus";
         private const string PipeNamePrefix = "locus_tauri_unity_embed_";
         private const string FullPipeNamePrefix = @"\\.\pipe\";
         private const double SyncIntervalSeconds = 0.12d;
+        private const double InactiveSyncIntervalSeconds = 0.5d;
         private const double ResizeSyncIntervalSeconds = 1d / 60d;
         private const double ResizeBoostDurationSeconds = 0.35d;
         private const double AssetDragStateRefreshSeconds = 0.35d;
         private const double HeartbeatIntervalSeconds = 2d;
         private const double DesktopProbeIntervalSeconds = 2d;
+        private const double EmbedFeatureProbeIntervalSeconds = 1d;
+        private const double HostWindowProbeIntervalSeconds = 2d;
+        private const string EmbedDisabledMarkerName = "UnityEmbed.disabled";
         private const string CloseReasonWindowClosed = "windowClosed";
         private const string CloseReasonWindowDisabled = "windowDisabled";
         private const string CloseReasonEditorQuit = "editorQuit";
         private const string CloseReasonDomainReload = "domainReload";
+        private const string CloseReasonFeatureDisabled = "featureDisabled";
         private const string DefaultWindowId = "session";
         private const string DefaultTargetKind = "session";
         private const string TargetKindSession = "session";
@@ -81,6 +107,10 @@ namespace Locus
         private long _lastSentParentHwnd;
         private long _controlRevision;
         private double _nextDesktopProbeAt;
+        private double _nextEmbedFeatureProbeAt;
+        private double _nextHostWindowProbeAt;
+        private bool _embedFeatureInitialized;
+        private bool _embedFeatureEnabled = true;
         private volatile LocusDesktopInstall _desktopInstall = LocusDesktopInstall.NotFound;
         private volatile bool _desktopProcessRunning;
         private volatile bool _desktopProbeInFlight;
@@ -117,6 +147,13 @@ namespace Locus
         }
 
         [Serializable]
+        private sealed class SendToLocusMessage
+        {
+            public DroppedAssetRef[] assetRefs;
+            public LocusFileDropRef[] files;
+        }
+
+        [Serializable]
         internal sealed class OpenFrontendWindowRequest
         {
             public string windowId;
@@ -134,6 +171,16 @@ namespace Locus
             public string kind;
             public string name;
             public string typeLabel;
+            public string source;
+        }
+
+        [Serializable]
+        private sealed class LocusFileDropRef
+        {
+            public string path;
+            public string name;
+            public string typeLabel;
+            public bool isDir;
             public string source;
         }
 
@@ -307,27 +354,48 @@ namespace Locus
 
         private static void SendSelectedRefsToLocus()
         {
+            SendToLocus();
+        }
+
+        /// <summary>
+        /// Sends the current Unity selection to the most recently focused Locus composer.
+        /// </summary>
+        public static bool SendToLocus()
+        {
             DroppedAssetRef[] assetRefs = BuildSelectedAssetRefs();
             if (assetRefs.Length == 0)
-                return;
+                return false;
 
-            string json = JsonUtility.ToJson(new EmbedControlMessage
+            return SendToLocus(new SendToLocusMessage
             {
-                type = "assetDrop",
                 assetRefs = assetRefs
             });
-            string pipeName = GetControlPipeName();
+        }
 
-            Task.Run(() =>
+        /// <summary>
+        /// Sends explicit local files or folders to the most recently focused Locus composer.
+        /// Invalid or missing paths are ignored; returns false when no attachment can be sent.
+        /// </summary>
+        public static bool SendToLocus(IReadOnlyList<LocusFileAttachment> attachments)
+        {
+            if (attachments == null)
+                throw new ArgumentNullException(nameof(attachments));
+
+            LocusFileDropRef[] files = BuildLocalFileDropRefs(attachments);
+            if (files.Length == 0)
+                return false;
+
+            return SendToLocus(new SendToLocusMessage
             {
-                try
-                {
-                    WritePipeLineOnce(pipeName, json);
-                }
-                catch
-                {
-                }
+                files = files
             });
+        }
+
+        private static bool SendToLocus(SendToLocusMessage message)
+        {
+            return LocusBridge.TrySendEventToRust(
+                SendToLocusEvent,
+                JsonUtility.ToJson(message));
         }
 
         private static void EnsureLifecycleHooks()
@@ -442,6 +510,54 @@ namespace Locus
             _nextHeartbeatAt = 0d;
         }
 
+        private bool RefreshEmbedFeatureState(bool force)
+        {
+            double now = EditorApplication.timeSinceStartup;
+            if (!force && _embedFeatureInitialized && now < _nextEmbedFeatureProbeAt)
+                return _embedFeatureEnabled;
+
+            _nextEmbedFeatureProbeAt = now + EmbedFeatureProbeIntervalSeconds;
+            bool enabled = !File.Exists(GetEmbedDisabledMarkerPath());
+            if (!_embedFeatureInitialized)
+            {
+                _embedFeatureInitialized = true;
+                _embedFeatureEnabled = enabled;
+                return enabled;
+            }
+            if (_embedFeatureEnabled == enabled)
+                return enabled;
+
+            if (!enabled && _sentOpen && _frontendWindowConfigured)
+                SendClose(CloseReasonFeatureDisabled);
+
+            _embedFeatureEnabled = enabled;
+            if (enabled)
+            {
+                BeginControlEpoch();
+                _nextSyncAt = 0d;
+            }
+            return enabled;
+        }
+
+        private static string GetEmbedDisabledMarkerPath()
+        {
+            try
+            {
+                DirectoryInfo projectRoot = Directory.GetParent(Application.dataPath);
+                if (projectRoot == null)
+                    return "";
+                return Path.Combine(
+                    projectRoot.FullName,
+                    "Library",
+                    "Locus",
+                    EmbedDisabledMarkerName);
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
         private static void OnBeforeAssemblyReload()
         {
             _assemblyReloadInProgress = true;
@@ -468,10 +584,11 @@ namespace Locus
             BeginControlEpoch();
             minSize = new Vector2(360f, 420f);
             RefreshDesktopState(false);
+            RefreshEmbedFeatureState(true);
             if (OverlaySyncEnabled)
             {
                 EditorApplication.update += SyncOverlay;
-                if (_frontendWindowConfigured)
+                if (_frontendWindowConfigured && _embedFeatureEnabled)
                     SendOpenOrUpdate(true);
             }
         }
@@ -481,7 +598,7 @@ namespace Locus
             if (OverlaySyncEnabled)
             {
                 EditorApplication.update -= SyncOverlay;
-                if (_frontendWindowConfigured)
+                if (_frontendWindowConfigured && _embedFeatureEnabled)
                 {
                     // During a domain reload the native overlay client keeps the
                     // connection alive, so signal "reloading" (the Tauri server
@@ -516,7 +633,7 @@ namespace Locus
 
         private void OnDestroy()
         {
-            if (!OverlaySyncEnabled || !_frontendWindowConfigured)
+            if (!OverlaySyncEnabled || !_frontendWindowConfigured || !_embedFeatureEnabled)
                 return;
             if (_editorQuitting || _assemblyReloadInProgress)
                 return;
@@ -526,7 +643,8 @@ namespace Locus
 
         private void OnFocus()
         {
-            if (OverlaySyncEnabled)
+            _nextHostWindowProbeAt = 0d;
+            if (OverlaySyncEnabled && _embedFeatureEnabled)
                 SendOpenOrUpdate(true);
         }
 
@@ -537,18 +655,26 @@ namespace Locus
             RefreshDesktopState(false);
             DrawPlaceholder();
 
-            if (OverlaySyncEnabled && Event.current.type == EventType.Repaint)
+            if (OverlaySyncEnabled && _embedFeatureEnabled && Event.current.type == EventType.Repaint)
                 SendOpenOrUpdate(false);
         }
 
         private void SyncOverlay()
         {
             double now = EditorApplication.timeSinceStartup;
+            if (!RefreshEmbedFeatureState(false))
+            {
+                _nextSyncAt = now + EmbedFeatureProbeIntervalSeconds;
+                return;
+            }
             if (now < _nextSyncAt)
                 return;
 
             bool resizeBoostActive = IsResizeSyncBoostActive(now);
-            _nextSyncAt = now + (resizeBoostActive ? ResizeSyncIntervalSeconds : SyncIntervalSeconds);
+            bool inactive = _hasLastSent && !_lastSentVisible && !resizeBoostActive;
+            _nextSyncAt = now + (resizeBoostActive
+                ? ResizeSyncIntervalSeconds
+                : inactive ? InactiveSyncIntervalSeconds : SyncIntervalSeconds);
             RefreshDesktopState(false);
             SendOpenOrUpdate(false);
             SendAssetDragState(false);
@@ -559,7 +685,7 @@ namespace Locus
 
         private void SendOpenOrUpdate(bool force)
         {
-            if (!_frontendWindowConfigured)
+            if (!_frontendWindowConfigured || !_embedFeatureEnabled)
                 return;
             if (_sendInFlight && !force)
                 return;
@@ -748,6 +874,30 @@ namespace Locus
             if (!_hasScreenRect)
                 UpdateScreenRectFromPosition();
 
+            bool selectedDockTab = IsSelectedDockTab();
+            bool messageVisible = visible
+                && _screenWidth > 12
+                && _screenHeight > 12
+                && selectedDockTab;
+            long parentHwnd = _lastSentParentHwnd;
+            double now = EditorApplication.timeSinceStartup;
+            bool forceHostProbe = !_hasLastSent
+                || (selectedDockTab
+                    && IsUnityProcessForeground()
+                    && now >= _nextHostWindowProbeAt);
+            if (!_hasLastSent || selectedDockTab)
+            {
+                parentHwnd = GetUnityHostHwnd(
+                    _screenX,
+                    _screenY,
+                    _screenWidth,
+                    _screenHeight,
+                    _lastSentParentHwnd,
+                    forceHostProbe);
+                if (forceHostProbe)
+                    _nextHostWindowProbeAt = now + HostWindowProbeIntervalSeconds;
+            }
+
             return new EmbedControlMessage
             {
                 type = type,
@@ -761,8 +911,8 @@ namespace Locus
                 y = _screenY,
                 width = _screenWidth,
                 height = _screenHeight,
-                visible = visible && _screenWidth > 12 && _screenHeight > 12 && IsSelectedDockTab(),
-                parentHwnd = GetUnityHostHwnd(_screenX, _screenY, _screenWidth, _screenHeight),
+                visible = messageVisible,
+                parentHwnd = parentHwnd,
                 reason = reason ?? ""
             };
         }
@@ -1177,6 +1327,55 @@ namespace Locus
                 return;
 
             throw new IOException("Native overlay client is unavailable.");
+        }
+
+        private static LocusFileDropRef[] BuildLocalFileDropRefs(
+            IReadOnlyList<LocusFileAttachment> attachments)
+        {
+            List<LocusFileDropRef> files = new List<LocusFileDropRef>(attachments.Count);
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int index = 0; index < attachments.Count; index++)
+            {
+                LocusFileAttachment attachment = attachments[index];
+                string rawPath = attachment == null ? "" : attachment.Path.Trim();
+                if (string.IsNullOrEmpty(rawPath))
+                    continue;
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(rawPath);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                bool isDir = Directory.Exists(fullPath);
+                if (!isDir && !File.Exists(fullPath))
+                    continue;
+                if (!seen.Add(fullPath))
+                    continue;
+
+                string trimmedPath = fullPath.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar);
+                string name = attachment.Name.Trim();
+                if (string.IsNullOrEmpty(name))
+                    name = Path.GetFileName(trimmedPath);
+
+                files.Add(new LocusFileDropRef
+                {
+                    path = fullPath,
+                    name = name,
+                    typeLabel = attachment.TypeLabel.Trim(),
+                    isDir = isDir,
+                    source = string.IsNullOrWhiteSpace(attachment.Source)
+                        ? "unity"
+                        : attachment.Source.Trim()
+                });
+            }
+            return files.ToArray();
         }
 
         private static void WritePipeLineOnce(string pipeName, string json)
@@ -1624,15 +1823,39 @@ namespace Locus
         }
 #endif
 
-        private static long GetUnityHostHwnd(int screenX, int screenY, int width, int height)
+        private static long GetUnityHostHwnd(
+            int screenX,
+            int screenY,
+            int width,
+            int height,
+            long cachedHwnd,
+            bool forceProbe)
         {
 #if UNITY_EDITOR_WIN
+            IntPtr cached = new IntPtr(cachedHwnd);
+            if (!forceProbe && IsUnityHostWindowForRect(cached, screenX, screenY, width, height))
+                return cachedHwnd;
+
             IntPtr host = FindUnityHostWindowForRect(screenX, screenY, width, height);
             if (host != IntPtr.Zero)
                 return host.ToInt64();
 #endif
 
             return GetUnityMainHwnd();
+        }
+
+        private static bool IsUnityProcessForeground()
+        {
+#if UNITY_EDITOR_WIN
+            IntPtr foreground = GetForegroundWindow();
+            if (foreground == IntPtr.Zero)
+                return false;
+            uint processId;
+            GetWindowThreadProcessId(foreground, out processId);
+            return processId == (uint)Process.GetCurrentProcess().Id;
+#else
+            return true;
+#endif
         }
 
         private static long GetUnityMainHwnd()
@@ -1709,6 +1932,34 @@ namespace Locus
             }, IntPtr.Zero);
 
             return bestHwnd;
+        }
+
+        private static bool IsUnityHostWindowForRect(
+            IntPtr hwnd,
+            int screenX,
+            int screenY,
+            int width,
+            int height)
+        {
+            if (hwnd == IntPtr.Zero || width <= 0 || height <= 0 || !IsWindowVisible(hwnd))
+                return false;
+
+            uint processId;
+            GetWindowThreadProcessId(hwnd, out processId);
+            if (processId != (uint)Process.GetCurrentProcess().Id)
+                return false;
+
+            NativeRect rect;
+            if (!GetWindowRect(hwnd, out rect))
+                return false;
+            NativeRect target = new NativeRect
+            {
+                left = screenX,
+                top = screenY,
+                right = screenX + width,
+                bottom = screenY + height
+            };
+            return IntersectionArea(target, rect) > 0;
         }
 
         private static long IntersectionArea(NativeRect a, NativeRect b)
@@ -1884,6 +2135,9 @@ namespace Locus
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetActiveWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
