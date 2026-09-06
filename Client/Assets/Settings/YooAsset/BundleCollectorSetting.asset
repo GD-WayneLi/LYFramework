@@ -16,6 +16,28 @@ MonoBehaviour:
   ShowEditorAlias: 0
   UniqueBundleName: 0
   Packages:
+  - PackageName: Boot
+    PackageDesc: 
+    EnableAddressable: 0
+    SupportExtensionless: 1
+    LocationToLower: 0
+    IncludeAssetGUID: 0
+    AutoCollectShaders: 1
+    IgnoreRuleName: NormalIgnoreRule
+    Groups:
+    - GroupName: UI
+      GroupDesc: 
+      AssetTags: 
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/Bundles/Boot
+        CollectorGUID: fda4230a599525c4597dd3e33e854e6b
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
   - PackageName: DefaultPackage
     PackageDesc: 
     EnableAddressable: 0
@@ -30,11 +52,11 @@ MonoBehaviour:
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/Bundles/Prefabs
-        CollectorGUID: cfc0d74aaa12fcf43b52dbef2b05789e
+      - CollectPath: Assets/Bundles/Prefabs/UI
+        CollectorGUID: 8972d7357d4acbf4489dc57a7263d589
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackDirectory
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectPrefab
         AssetTags: 
         UserData: 

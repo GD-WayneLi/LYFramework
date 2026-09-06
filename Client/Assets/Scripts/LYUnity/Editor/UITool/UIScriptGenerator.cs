@@ -13,17 +13,12 @@ namespace LYUnity.UITool.Editor
     {
         private const string GeneratedComponentRoot = "Assets/Scripts/Demo/Model/Client/Generage/UI";
         private const string ComponentRoot = "Assets/Scripts/Demo/Model/Client/UI";
-        private const string GeneratedSystemRoot = "Assets/Scripts/Demo/System/Clinet/Generage/UI";
-        private const string SystemRoot = "Assets/Scripts/Demo/System/Clinet/UI";
+        private const string GeneratedSystemRoot = "Assets/Scripts/Demo/HotUpdate/Clinet/Generage/UI";
+        private const string SystemRoot = "Assets/Scripts/Demo/HotUpdate/Clinet/UI";
         private const string TemplateRoot = "Assets/Scripts/LYUnity/Editor/UITool/Template";
         private const string AssetsMenuPath = "Assets/生成UI脚本";
         private const string GameObjectMenuPath = "GameObject/生成UI脚本";
-
-        private static readonly HashSet<string> CSharpKeywords = new(StringComparer.Ordinal)
-        {
-            "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock", "long", "namespace", "new", "null", "object", "operator", "out", "override", "params", "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
-        };
-
+        
         [MenuItem(AssetsMenuPath, true)]
         private static bool ValidateGenerateUIScriptsFromAssets()
         {

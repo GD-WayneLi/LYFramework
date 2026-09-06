@@ -23,21 +23,18 @@ aiEditMode: inherit
 根节点通常包含：
 
 - `Canvas`
-- `CanvasScaler`
-- `GraphicRaycaster`
 
-Canvas 使用 `Screen Space - Overlay`。CanvasScaler 使用 `Scale With Screen Size`，参考分辨率统一为 `1920 x 1080`，除非界面有明确的特殊需求。
+Canvas 使用 `Screen Space - Overlay`。参考分辨率统一为 `900 x 1600`，除非界面有明确的特殊需求。
 
 推荐的通用层级：
 
 ```text
 UIName
 ├─ Background
-├─ Panel
-│  ├─ Header
-│  ├─ Content
-│  └─ Footer
-└─ SafeArea
+└─ Panel
+   ├─ Header
+   ├─ Content
+   └─ Footer
 ```
 
 层级名称可以按界面实际需求调整，但应保持语义清晰、层级稳定。
@@ -109,4 +106,3 @@ AI 创建或修改 UI 时按以下顺序执行：
 - 生成脚本中的层级路径与 Prefab 实际层级一致。
 - 业务代码没有写入生成目录。
 - 打开界面使用现有 UI 管理流程。
-- 修改后完成 Unity 编译检查，并由开发者进入运行时验证交互和布局。

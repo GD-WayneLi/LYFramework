@@ -1,18 +1,62 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using LYFramework.Log;
+using LYUnity.Utility.Unity;
 using YooAsset;
 
 namespace Demo
 {
     public class YooAssetUtility
     {
-        public static async ValueTask Init(EPlayMode playMode, string packageName, string defaultHostServer = "",
-            string fallbackHostServer = "")
+        public static void Init()
         {
             YooAssets.Initialize();
-            YooAssets.CreatePackage(packageName);
+        }
 
+        public static async ValueTask LoadBootPage(EPlayMode playMode, string packageName, string defaultHostServer = "",
+            string fallbackHostServer = "")
+        {
+            // 初始化package
+            var ret = await InitPackage(playMode, packageName, defaultHostServer, fallbackHostServer);
+            if (!ret)
+            {
+                // 失败
+                return;
+            }
+
+            // 取本地版本号，如果没有取远程版本号
+            var version = UnityLocalStorage.GetString("packageVersion");
+            if (string.IsNullOrEmpty(version))
+            {
+                // 请求版本号
+                version = await RequestPackageVersion(packageName);
+                if (string.IsNullOrEmpty(version))
+                {
+                    // 没取到
+                    return;
+                }
+            }
+
+            // 更新包资源清单
+            await UpdatePackageManifest(packageName, version);
+
+            var downloader = CreateDownloader(packageName);
+            if (downloader.TotalDownloadCount != 0)
+            {
+                if (!await StartDownload(downloader))
+                {
+                    // 失败
+                    return;
+                }
+            }
+
+            UnityLocalStorage.SetString("packageVersion", version);
+            UnityLocalStorage.Save();
+        }
+
+        public static async ValueTask Update(EPlayMode playMode, string packageName, string defaultHostServer = "",
+            string fallbackHostServer = "")
+        {
             // 初始化package
             var ret = await InitPackage(playMode, packageName, defaultHostServer, fallbackHostServer);
             if (!ret)
@@ -30,7 +74,7 @@ namespace Demo
             }
 
             // 更新包资源清单
-            await UpdatePackageManifest(version);
+            await UpdatePackageManifest(packageName, version);
 
             var downloader = CreateDownloader(packageName);
             if (downloader.TotalDownloadCount != 0)
@@ -153,9 +197,9 @@ namespace Demo
             return "";
         }
 
-        private static async ValueTask<bool> UpdatePackageManifest(string packageVersion)
+        private static async ValueTask<bool> UpdatePackageManifest(string packageName, string packageVersion)
         {
-            var package = YooAssets.GetPackage("DefaultPackage");
+            var package = YooAssets.GetPackage(packageName);
             var operation = package.LoadPackageManifestAsync(new LoadPackageManifestOptions(packageVersion, 60));
             await operation;
 
@@ -185,7 +229,7 @@ namespace Demo
             downloader.DownloadError += OnDownloadError;
             downloader.DownloadProgressChanged += OnDownloadProgressChanged;
             downloader.StartDownload();
-            
+
             await downloader;
 
             downloader.DownloadError -= OnDownloadError;
