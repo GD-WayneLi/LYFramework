@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using LYFramework.Event;
 using LYFramework.Log;
 
 namespace LYFramework
@@ -34,6 +35,7 @@ namespace LYFramework
         {
             Game.World = new World();
             Game.SystemEvent = new EntityEvent();
+            Game.EventManager = new EventManager();
         }
 
         public abstract void Init();
@@ -77,6 +79,7 @@ namespace LYFramework
             }
 
             Game.SystemEvent.Dispose();
+            Game.EventManager.Dispose();
             m_SystemRegistrationOrder.Clear();
             m_Systems.Clear();
             m_Utilities.Clear();

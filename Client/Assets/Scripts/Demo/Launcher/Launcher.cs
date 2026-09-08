@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-using LYFramework.Log;
-using LYFramework.TaskEx;
+﻿using QFramework.Demo;
 using UnityEngine;
 using YooAsset;
 
@@ -12,20 +10,18 @@ namespace Demo
 
         void Start()
         {
-            LYLogger.SetLogHelper(new DefaultLogHelper());
-            
-            Init().Forget();
+            DontDestroyOnLoad(gameObject);
+            GameManager.Instance.Init(gameObject, m_PlayMode);
         }
 
-        async ValueTask Init()
+        private void Update()
         {
-            YooAssetUtility.Init();
-            await YooAssetUtility.LoadBootPage(m_PlayMode, "Boot");
-            YooAssetUtility.Update(m_PlayMode, "DefaultPackage").Forget();
+            GameManager.Instance.Update();
         }
-        
+
         private void OnDestroy()
         {
+            GameManager.Instance.Dispose();
         }
     }
 }

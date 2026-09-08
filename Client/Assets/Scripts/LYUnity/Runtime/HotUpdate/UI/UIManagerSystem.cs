@@ -4,6 +4,7 @@ using LYFramework;
 using LYFramework.Log;
 using LYUnity.Utility.Unity;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace LYUnity.UI
 {
@@ -14,7 +15,10 @@ namespace LYUnity.UI
     {
         public void Awake(UIManagerComponent self, GameObject gameObject)
         {
-            self.UIRoot = gameObject.AddChild("UIRoot");
+            var UIRoot = Resources.Load<GameObject>("UIRoot");
+            self.UIRootSrc = UIRoot;
+            self.UIRoot = Object.Instantiate(UIRoot, gameObject.transform);
+            self.UIParent = UIRoot.transform.Find("Canvas/SafeArena");
             RefreshUILifecycle(self);
         }
 
@@ -24,6 +28,9 @@ namespace LYUnity.UI
             self.Event = null;
             lifecycle?.Dispose();
             self.LayerGroups.Clear();
+            
+            Object.DestroyImmediate(self.UIRoot);
+            Resources.UnloadAsset(self.UIRootSrc);
         }
 
         public void RefreshUILifecycle(UIManagerComponent self)
