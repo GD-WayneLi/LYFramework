@@ -6,11 +6,11 @@ using YooAsset;
 
 namespace LYUnity.Resource
 {
-    public class ResourceLoaderSystem : SystemBase, ISystemAwake<ResourceLoaderComponent>, ISystemDispose<ResourceLoaderComponent>
+    public class ResourceLoaderSystem : SystemBase, ISystemAwake<ResourceLoaderComponent, string>, ISystemDispose<ResourceLoaderComponent>
     {
-        public void Awake(ResourceLoaderComponent component)
+        public void Awake(ResourceLoaderComponent component, string packageName)
         {
-            component.Package = YooAssets.GetPackage("DefaultPackage");
+            component.Package = YooAssets.GetPackage(packageName);
         }
 
         public void Dispose(ResourceLoaderComponent component)

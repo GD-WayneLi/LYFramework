@@ -1,5 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Demo;
+using Demo.Client.Model;
+using Demo.Client.System;
 using LYFramework;
 using LYFramework.Log;
 using LYFramework.TaskEx;
@@ -14,7 +16,7 @@ namespace QFramework.Demo
     {
         EPlayMode m_PlayMode;
         GameObject m_Root;
-        
+
         public void Init(GameObject root, EPlayMode playMode)
         {
             LYLogger.SetLogHelper(new DefaultLogHelper());
@@ -24,26 +26,26 @@ namespace QFramework.Demo
 
             Init();
         }
-        
+
         public override void Init()
         {
             RegisterSystems();
             InitAsync().Forget();
         }
-        
+
         async ValueTask InitAsync()
         {
             var domain = Game.World.AddDomain();
-            
+
             // 初始化UI组件
             var uiManagerEntity = domain.AddChild();
             var uiManager = uiManagerEntity.AddComponent<UIManagerComponent, GameObject>(m_Root);
-            
+
             YooAssetUtility.Init();
             await YooAssetUtility.LoadBootPage(m_PlayMode, "Boot");
-            
-            
-            
+
+            await uiManager.OpenUI<UILoadingComponent>("Assets/Bundles/Boot/UILoading.prefab", 1, null, "Boot");
+
             await YooAssetUtility.Update(m_PlayMode, "DefaultPackage");
         }
 
@@ -54,6 +56,7 @@ namespace QFramework.Demo
         {
             RegisterSystem<ResourceLoaderSystem>();
             RegisterSystem<UIManagerSystem>();
+            RegisterSystem<UILoadingSystem>();
         }
     }
 }

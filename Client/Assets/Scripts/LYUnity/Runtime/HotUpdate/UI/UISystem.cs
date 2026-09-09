@@ -80,7 +80,7 @@ namespace LYUnity.UI
 
     public static class UIComponentExtensions
     {
-        public static void Configure(this UIComponent self, string path, int layer, object userData, Entity uiLogicComponent)
+        public static void Configure(this UIComponent self, string path, int layer, object userData, Entity uiLogicComponent, string packageName)
         {
             ThrowIfInvalid(self);
             
@@ -90,6 +90,7 @@ namespace LYUnity.UI
                     $"UIComponent cannot be configured in state: {self.State}");
             }
 
+            self.PackageName = packageName;
             self.Path = path;
             self.Layer = layer;
             self.Depth = layer;
@@ -109,7 +110,7 @@ namespace LYUnity.UI
 
             self.State = UIState.Loading;
 
-            self.Resource = await self.Owner.Load<GameObject>(self.Path);
+            self.Resource = await self.Owner.Load<GameObject>(self.Path, self.PackageName);
             if (!self.Resource)
             {
                 return;
@@ -123,7 +124,7 @@ namespace LYUnity.UI
             var uiEntity = self.Owner?.Parent;
             var manager = uiEntity?.GetComponent<UIManagerComponent>();
 
-            self.GameObject = Object.Instantiate(self.Resource, manager.UIRoot.transform);
+            self.GameObject = Object.Instantiate(self.Resource, manager.UIParent);
             self.IsVisible = true;
         }
         

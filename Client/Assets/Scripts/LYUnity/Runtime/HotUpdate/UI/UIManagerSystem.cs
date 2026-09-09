@@ -81,7 +81,7 @@ namespace LYUnity.UI
             }
         }
 
-        public static async ValueTask OpenUI<T>(this UIManagerComponent self, string path, int layer, object data = null) where T : Entity, IUILogicComponent, new()
+        public static async ValueTask OpenUI<T>(this UIManagerComponent self, string path, int layer, object data = null, string packageName = "DefaultPackage") where T : Entity, IUILogicComponent, new()
         {
             ThrowIfUnavailable(self);
 
@@ -91,7 +91,7 @@ namespace LYUnity.UI
             var uiComponent = uiEntity.AddComponent<UIComponent>();
             var uiLogicComponent = uiEntity.AddComponent<T>();
             
-            uiComponent.Configure(path, layer, data, uiLogicComponent);
+            uiComponent.Configure(path, layer, data, uiLogicComponent, packageName);
 
 
             await uiComponent.BeginLoading();

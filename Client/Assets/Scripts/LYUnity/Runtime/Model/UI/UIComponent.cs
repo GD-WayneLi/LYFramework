@@ -20,6 +20,8 @@ namespace LYUnity.UI
         
         public UIState State;
 
+        public string PackageName;
+        
         public string Path;
 
         public int Layer;

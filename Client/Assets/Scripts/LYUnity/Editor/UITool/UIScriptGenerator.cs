@@ -11,10 +11,11 @@ namespace LYUnity.UITool.Editor
 {
     internal static class UIScriptGenerator
     {
-        private const string GeneratedComponentRoot = "Assets/Scripts/Demo/Model/Client/Generage/UI";
-        private const string ComponentRoot = "Assets/Scripts/Demo/Model/Client/UI";
-        private const string GeneratedSystemRoot = "Assets/Scripts/Demo/HotUpdate/Clinet/Generage/UI";
-        private const string SystemRoot = "Assets/Scripts/Demo/HotUpdate/Clinet/UI";
+        private const string DefaultScriptsRoot = "Assets/Scripts/Demo";
+        private const string ModelGeneratedUIPath = "Model/Client/Generage/UI";
+        private const string ModelUIPath = "Model/Client/UI";
+        private const string HotUpdateGeneratedUIPath = "HotUpdate/Clinet/Generage/UI";
+        private const string HotUpdateUIPath = "HotUpdate/Clinet/UI";
         private const string TemplateRoot = "Assets/Scripts/LYUnity/Editor/UITool/Template";
         private const string AssetsMenuPath = "Assets/生成UI脚本";
         private const string GameObjectMenuPath = "GameObject/生成UI脚本";
@@ -33,7 +34,7 @@ namespace LYUnity.UITool.Editor
                 return;
             }
 
-            GenerateUIScripts(prefab);
+            GenerateUIScripts(prefab, DefaultScriptsRoot);
         }
 
         [MenuItem(GameObjectMenuPath, true)]
@@ -48,42 +49,67 @@ namespace LYUnity.UITool.Editor
             GameObject selectedObject = menuCommand?.context as GameObject ?? Selection.activeGameObject;
             if (selectedObject != null)
             {
-                GenerateUIScripts(selectedObject);
+                GenerateUIScripts(selectedObject, DefaultScriptsRoot);
             }
         }
 
-        private static void GenerateUIScripts(GameObject prefab)
+        internal static bool GenerateUIScripts(GameObject prefab, string scriptsRoot)
         {
+            if (prefab == null || string.IsNullOrEmpty(scriptsRoot))
+            {
+                return false;
+            }
+
             try
             {
-                Generate(prefab);
+                Generate(prefab, scriptsRoot);
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-                Debug.Log($"UI scripts generated for prefab '{prefab.name}'.");
+                Debug.Log($"UI scripts generated for prefab '{prefab.name}' under '{scriptsRoot}'.");
+                return true;
             }
             catch (Exception exception)
             {
                 Debug.LogError($"Failed to generate UI scripts for prefab '{prefab.name}': {exception}");
+                return false;
             }
         }
 
-        private static void Generate(GameObject prefab)
+        internal static string[] GetGeneratedScriptPaths(GameObject prefab, string scriptsRoot)
+        {
+            if (prefab == null || string.IsNullOrEmpty(scriptsRoot))
+            {
+                return new string[0];
+            }
+
+            string prefabName = prefab.name;
+            return new[]
+            {
+                BuildScriptPath(scriptsRoot, ModelGeneratedUIPath, prefabName, "Component.cs"),
+                BuildScriptPath(scriptsRoot, ModelUIPath, prefabName, "Component.cs"),
+                BuildScriptPath(scriptsRoot, HotUpdateGeneratedUIPath, prefabName, "System.cs"),
+                BuildScriptPath(scriptsRoot, HotUpdateUIPath, prefabName, "System.cs")
+            };
+        }
+
+        private static void Generate(GameObject prefab, string scriptsRoot)
         {
             string prefabName = prefab.name;
             string className = prefab.name;
-            string generatedFolder = CombineAssetPath(GeneratedComponentRoot, prefabName);
-            string componentFolder = CombineAssetPath(ComponentRoot, prefabName);
-            string generatedSystemFolder = CombineAssetPath(GeneratedSystemRoot, prefabName);
-            string systemFolder = CombineAssetPath(SystemRoot, prefabName);
+            string[] scriptPaths = GetGeneratedScriptPaths(prefab, scriptsRoot);
+            string generatedFolder = GetAssetDirectory(scriptPaths[0]);
+            string componentFolder = GetAssetDirectory(scriptPaths[1]);
+            string generatedSystemFolder = GetAssetDirectory(scriptPaths[2]);
+            string systemFolder = GetAssetDirectory(scriptPaths[3]);
             EnsureAssetFolder(generatedFolder);
             EnsureAssetFolder(componentFolder);
             EnsureAssetFolder(generatedSystemFolder);
             EnsureAssetFolder(systemFolder);
 
             List<FieldDefinition> fields = CollectFields(prefab);
-            string generatedComponentPath = CombineAssetPath(generatedFolder, className + "Component.cs");
-            string componentPath = CombineAssetPath(componentFolder, className + "Component.cs");
-            string generatedSystemPath = CombineAssetPath(generatedSystemFolder, className + "System.cs");
-            string systemPath = CombineAssetPath(systemFolder, className + "System.cs");
+            string generatedComponentPath = scriptPaths[0];
+            string componentPath = scriptPaths[1];
+            string generatedSystemPath = scriptPaths[2];
+            string systemPath = scriptPaths[3];
 
             WriteGeneratedAssetFile(generatedComponentPath, BuildFromTemplate("FieldComponent.cs.txt", className, BuildFieldDeclarations(fields)));
             WriteCustomAssetFile(componentPath, BuildFromTemplate("CustomComponent.cs.txt", className, string.Empty));
@@ -260,6 +286,18 @@ namespace LYUnity.UITool.Editor
             return (parent.TrimEnd('/') + "/" + child.Trim('/')).Replace('\\', '/');
         }
 
+        private static string BuildScriptPath(string scriptsRoot, string relativeFolder, string prefabName, string fileSuffix)
+        {
+            string prefabFolder = CombineAssetPath(CombineAssetPath(scriptsRoot, relativeFolder), prefabName);
+            return CombineAssetPath(prefabFolder, prefabName + fileSuffix);
+        }
+
+        private static string GetAssetDirectory(string assetPath)
+        {
+            int separatorIndex = assetPath.LastIndexOf('/');
+            return separatorIndex < 0 ? assetPath : assetPath.Substring(0, separatorIndex);
+        }
+
         private static void EnsureAssetFolder(string assetPath)
         {
             string[] segments = assetPath.Replace('\\', '/').Split('/');
@@ -302,7 +340,7 @@ namespace LYUnity.UITool.Editor
             return Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar));
         }
 
-        private static bool TryGetSelectedPrefab(out GameObject prefab)
+        internal static bool TryGetSelectedPrefab(out GameObject prefab)
         {
             prefab = null;
             string assetPath = AssetDatabase.GetAssetPath(Selection.activeObject);
