@@ -253,7 +253,8 @@ namespace Demo
 
         private static void OnDownloadProgressChanged(DownloadProgressChangedEventArgs args)
         {
-            // todo:发送进度事件
+            var description = $"正在下载资源 ({args.CurrentDownloadCount}/{args.TotalDownloadCount})";
+            LYFramework.Game.EventManager?.Send(typeof(YooAssetUtility), new Demo.Client.Model.UILoadingEvent(args.Progress, description));
             LYLogger.Info($"downloadProgress: {args.Progress}");
         }
 

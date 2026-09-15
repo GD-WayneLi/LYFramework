@@ -14,7 +14,6 @@ namespace LYUnity.UI
 
         public UIEvent Event { get; set; }
 
-        public GameObject UIRootSrc;
         public GameObject UIRoot;
         public Transform UIParent;
         

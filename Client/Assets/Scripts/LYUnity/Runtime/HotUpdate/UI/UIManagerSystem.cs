@@ -16,9 +16,8 @@ namespace LYUnity.UI
         public void Awake(UIManagerComponent self, GameObject gameObject)
         {
             var UIRoot = Resources.Load<GameObject>("UIRoot");
-            self.UIRootSrc = UIRoot;
             self.UIRoot = Object.Instantiate(UIRoot, gameObject.transform);
-            self.UIParent = UIRoot.transform.Find("Canvas/SafeArena");
+            self.UIParent = self.UIRoot.transform.Find("Canvas/SafeArena");
             RefreshUILifecycle(self);
         }
 
@@ -30,7 +29,6 @@ namespace LYUnity.UI
             self.LayerGroups.Clear();
             
             Object.DestroyImmediate(self.UIRoot);
-            Resources.UnloadAsset(self.UIRootSrc);
         }
 
         public void RefreshUILifecycle(UIManagerComponent self)
