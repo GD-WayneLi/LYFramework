@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Demo.Client.System
 {
-    public partial class UILoadingSystem : IUIOpen<UILoadingComponent>, IUIUpdate<UILoadingComponent>, IUIClose<UILoadingComponent>
+    public partial class UILoadingSystem : IUIOpen<UILoadingComponent>, IUIUpdate<UILoadingComponent>
     {
         private const float ProgressSmoothTime = 0.2f;
 
@@ -26,14 +26,12 @@ namespace Demo.Client.System
                 self.m_StatusText.text = string.Empty;
             }
 
-            UnregisterListener(self);
             if (Game.EventManager == null)
             {
                 return;
             }
 
-            self.m_EventHandler = (_, loadingEvent) => OnLoadingEvent(self, loadingEvent);
-            Game.EventManager.AddListener(self.m_EventHandler);
+            Game.EventManager.AddListener<UILoadingComponent, UILoadingEvent>(self, OnLoadingEvent);
         }
 
         public void Update(UILoadingComponent self)
@@ -46,12 +44,7 @@ namespace Demo.Client.System
             SmoothProgress(self);
         }
 
-        public void OnClose(UILoadingComponent self)
-        {
-            UnregisterListener(self);
-        }
-
-        private static void OnLoadingEvent(UILoadingComponent self, UILoadingEvent loadingEvent)
+        private static void OnLoadingEvent(UILoadingComponent self, object sender, UILoadingEvent loadingEvent)
         {
             if (self == null || self.IsDisposed)
             {
@@ -83,17 +76,6 @@ namespace Demo.Client.System
 
             self.m_CurrentProgress = progress;
             self.m_ProgressSlider.value = progress;
-        }
-
-        private static void UnregisterListener(UILoadingComponent self)
-        {
-            if (self.m_EventHandler == null)
-            {
-                return;
-            }
-
-            Game.EventManager?.RemoveListener(self.m_EventHandler);
-            self.m_EventHandler = null;
         }
     }
 }

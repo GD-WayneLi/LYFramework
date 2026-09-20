@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Demo.Client.System;
+using LYFramework;
 using LYFramework.Log;
 using LYUnity.Utility.Unity;
 using YooAsset;
@@ -8,6 +10,16 @@ namespace Demo
 {
     public class YooAssetUtility
     {
+        private const float PackageInitializeProgress = 0.1f;
+        private const float VersionRequestProgress = 0.2f;
+        private const float ManifestUpdateProgress = 0.3f;
+        private const float DownloadStartProgress = 0.4f;
+        private const float DownloadEndProgress = 0.85f;
+        private const float CacheClearProgress = 0.9f;
+        private const float ResourceReadyProgress = 0.95f;
+
+        private static float s_DownloadProgress = DownloadStartProgress;
+
         public static void Init()
         {
             YooAssets.Initialize();
@@ -54,39 +66,54 @@ namespace Demo
             UnityLocalStorage.Save();
         }
 
-        public static async ValueTask Update(EPlayMode playMode, string packageName, string defaultHostServer = "",
-            string fallbackHostServer = "")
+        public static async ValueTask<bool> Update(EPlayMode playMode, string packageName, string defaultHostServer = "", string fallbackHostServer = "")
         {
+            SendLoadingEvent(PackageInitializeProgress, "正在初始化资源包");
+
             // 初始化package
             var ret = await InitPackage(playMode, packageName, defaultHostServer, fallbackHostServer);
             if (!ret)
             {
-                // 失败
-                return;
+                SendLoadingEvent(PackageInitializeProgress, "资源包初始化失败");
+                return false;
             }
 
             // 请求版本号
+            SendLoadingEvent(VersionRequestProgress, "正在获取资源版本");
             var version = await RequestPackageVersion(packageName);
             if (string.IsNullOrEmpty(version))
             {
-                // 没取到
-                return;
+                SendLoadingEvent(VersionRequestProgress, "获取资源版本失败");
+                return false;
             }
 
             // 更新包资源清单
-            await UpdatePackageManifest(packageName, version);
+            SendLoadingEvent(ManifestUpdateProgress, "正在更新资源清单");
+            if (!await UpdatePackageManifest(packageName, version))
+            {
+                SendLoadingEvent(ManifestUpdateProgress, "更新资源清单失败");
+                return false;
+            }
 
+            SendLoadingEvent(DownloadStartProgress, "正在检查资源文件");
             var downloader = CreateDownloader(packageName);
             if (downloader.TotalDownloadCount != 0)
             {
                 if (!await StartDownload(downloader))
                 {
-                    // 失败
-                    return;
+                    SendLoadingEvent(s_DownloadProgress, "资源下载失败，请检查网络");
+                    return false;
                 }
             }
+            else
+            {
+                SendLoadingEvent(DownloadEndProgress, "资源已是最新版本");
+            }
 
+            SendLoadingEvent(CacheClearProgress, "正在清理资源缓存");
             await ClearCache(packageName);
+            SendLoadingEvent(ResourceReadyProgress, "资源准备完成");
+            return true;
         }
 
         private static async ValueTask<bool> InitPackage(EPlayMode playMode, string packageName,
@@ -226,6 +253,7 @@ namespace Demo
 
         private static async ValueTask<bool> StartDownload(ResourceDownloaderOperation downloader)
         {
+            s_DownloadProgress = DownloadStartProgress;
             downloader.DownloadError += OnDownloadError;
             downloader.DownloadProgressChanged += OnDownloadProgressChanged;
             downloader.StartDownload();
@@ -254,8 +282,14 @@ namespace Demo
         private static void OnDownloadProgressChanged(DownloadProgressChangedEventArgs args)
         {
             var description = $"正在下载资源 ({args.CurrentDownloadCount}/{args.TotalDownloadCount})";
-            LYFramework.Game.EventManager?.Send(typeof(YooAssetUtility), new Demo.Client.Model.UILoadingEvent(args.Progress, description));
+            s_DownloadProgress = DownloadStartProgress + (DownloadEndProgress - DownloadStartProgress) * args.Progress;
+            SendLoadingEvent(s_DownloadProgress, description);
             LYLogger.Info($"downloadProgress: {args.Progress}");
+        }
+
+        private static void SendLoadingEvent(float progress, string description)
+        {
+            Game.EventManager?.Send(typeof(YooAssetUtility), new UILoadingEvent(progress, description));
         }
 
         /// <summary>

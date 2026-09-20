@@ -45,8 +45,14 @@ namespace QFramework.Demo
             await YooAssetUtility.LoadBootPage(m_PlayMode, "Boot");
 
             await uiManager.OpenUI<UILoadingComponent>("Assets/Bundles/Boot/UILoading.prefab", 1, null, "Boot");
+            Game.EventManager?.Send(this, new UILoadingEvent(0f, "正在准备资源更新"));
 
-            await YooAssetUtility.Update(m_PlayMode, "DefaultPackage");
+            if (!await YooAssetUtility.Update(m_PlayMode, "DefaultPackage"))
+            {
+                return;
+            }
+
+            Game.EventManager?.Send(this, new UILoadingEvent(1f, "加载完成"));
         }
 
         /// <summary>
@@ -56,6 +62,7 @@ namespace QFramework.Demo
         {
             RegisterSystem<ResourceLoaderSystem>();
             RegisterSystem<UIManagerSystem>();
+            RegisterSystem<UISystem>();
             RegisterSystem<UILoadingSystem>();
         }
     }
