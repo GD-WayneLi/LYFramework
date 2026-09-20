@@ -6,6 +6,8 @@ namespace LYFramework.Event
     {
         private EventHandler<T> m_Handler;
 
+        public bool IsEmpty => m_Handler == null;
+
         public void Add(EventHandler<T> listener)
         {
             m_Handler += listener;

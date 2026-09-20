@@ -302,7 +302,7 @@ namespace LYFramework
 
             IsDisposed = true;
             List<Exception> exceptions = null;
-
+            
             // 销毁顺序：子节点 -> 自身组件 -> 自己
             // 子节点先销毁
             if (m_Children != null)
@@ -345,6 +345,8 @@ namespace LYFramework
 				m_Components.Clear();
 				m_Components = null;
             }
+
+            Game.EventManager?.RemoveAllListeners(this);
 
             // 销毁自己
 			if (IsComponent && Domain != null)
