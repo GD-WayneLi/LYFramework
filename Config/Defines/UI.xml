@@ -1,0 +1,5 @@
+<module name="">
+    <enum name="UIType" flags="1" comment="UI类型">
+        <var name="Login" value="1"/>
+    </enum>
+</module>
