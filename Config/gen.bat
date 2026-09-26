@@ -8,6 +8,6 @@ dotnet %LUBAN_DLL% ^
     -d json ^
     --conf %CONF_ROOT%/luban.conf ^
     -x outputCodeDir=../Client/Assets/Scripts/Demo/Model/Client/Generage/Table ^
-    -x outputDataDir=../Client/Assets/Bundles/Prefabs/Table
+    -x outputDataDir=../Client/Assets/Bundles/Table
 
 pause
